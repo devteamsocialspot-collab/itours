@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "node16",
+    "moduleResolution": "node16",
+    "strict": true,
+    "noImplicitAny": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useUnknownInCatchVariables": false,
+    // Sequelize models declare columns as `public x!: T`; define-semantics would shadow Sequelize's getters
+    "useDefineForClassFields": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": "dist"
+  },
+  "include": ["index.ts", "src"]
+}

@@ -1,0 +1,20 @@
+# local Postgres only: `docker compose --env-file .env.local up -d postgres`
+name: itours
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+      POSTGRES_USER: ${POSTGRES_DB_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD}
+    ports:
+      - "${POSTGRES_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DB_USERNAME} -d ${POSTGRES_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  pgdata:

@@ -1,0 +1,3 @@
+# pnpm settings only — this is not a monorepo. Build scripts we deliberately skip:
+allowBuilds:
+  "@apollo/protobufjs": false

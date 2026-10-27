@@ -1,0 +1,6 @@
+{
+  "$schema": "https://fallow.tools/schema.json",
+  "entry": ["src/**/*.check.ts"],
+  "ignoreDependencies": ["pg", "pg-hstore"],
+  "usedClassMembers": [{ "extends": "Model", "members": ["*"] }]
+}
