@@ -181,6 +181,11 @@ export type Review = {
   gaps: number;
 };
 
+/** A review on a dashboard: which plan, and which agency for staff. */
+export type DashboardReview = Review & {
+  plan: Pick<Plan, "id" | "slug" | "titleEn" | "titleMn"> & { operator: Pick<Operator, "id" | "name"> };
+};
+
 export type ExpectationGap = {
   planId: string;
   planTitle: string;

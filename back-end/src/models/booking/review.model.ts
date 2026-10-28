@@ -23,6 +23,7 @@ export class ReviewModel extends Model implements TReview {
 
   public traveller?: UserModel;
   public booking?: BookingModel;
+  public plan?: PlanModel;
   public ratings?: ClaimRatingModel[];
 
   static associate(): void {

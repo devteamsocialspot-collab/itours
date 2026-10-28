@@ -71,6 +71,8 @@ export default `#graphql
     travelledAt: String
     "Promises that fell short; 0 = matched the plan."
     gaps: Int
+    "Loaded by latestReviews only."
+    plan: Plan
   }
 
   type ReviewResponse {
@@ -98,6 +100,8 @@ export default `#graphql
     "orderBy: createdAt (the booking, default) or startDate (the departure); direction: DESC (default) or ASC."
     orders(tab: ORDER_TAB, search: String, orderBy: String, direction: String, ${PAGINATION_TYPE}): OrdersResponse @auth(permissions: ["OPERATOR"])
     planReviews(planId: ID!, limit: Int): ReviewsResponse
+    "Newest first: staff see every plan's, an agency its own."
+    latestReviews(limit: Int): ReviewsResponse @auth(permissions: ["OPERATOR", "MANAGER"])
   }
 
   extend type Mutation {

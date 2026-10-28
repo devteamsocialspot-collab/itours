@@ -6,6 +6,7 @@ import { useState, type KeyboardEvent } from "react";
 import { BookingWidget } from "@/components/app/plan/booking-widget";
 import { Lightbox } from "@/components/app/plan/lightbox";
 import { RouteMap } from "@/components/app/plan/route-map";
+import { ReviewCard } from "@/components/app/review-card";
 import { SaveButton } from "@/components/app/save-button";
 import { Footer, SiteHeader } from "@/components/app/site-header";
 import { Bar, Photo, Score } from "@/components/app/ui";
@@ -292,30 +293,9 @@ export function PlanPageView({ plan, reviews, initialDep, initialPax }: { plan: 
             <h3>{t("plan.reviewsTitle")}</h3>
             {reviews.length === 0 && <p className="muted">{t("plan.noReviews")}</p>}
             <div className="grid-2" style={{ gap: 14 }}>
-              {reviews.map((review) => {
-                const [first = "", last = ""] = (review.travellerName ?? "").split(" ");
-                return (
-                  <div key={review.id} className="panel-sm">
-                    <div className="row" style={{ gap: 9, marginBottom: 8 }}>
-                      <div className="avatar" style={{ width: 30, height: 30, background: "var(--color-neutral-400)", fontSize: 11 }}>
-                        {initials(review.travellerName ?? "")}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>
-                          {first} {last ? `${last[0]}.` : ""} · {review.country}
-                        </div>
-                        {review.travelledAt && <div className="xs muted">{t("plan.travelled", { d: day(review.travelledAt, locale) })}</div>}
-                      </div>
-                      <span className={`tag ${review.gaps ? "tag-accent" : "tag-accent-2"} ml-auto`}>
-                        {review.gaps ? t("plan.nGaps", { n: review.gaps }) : t("plan.matchedPlan")}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, color: "var(--ink-80)" }}>
-                      <span style={{ color: "var(--color-cta)" }}>{"★".repeat(review.stars)}</span> {review.text}
-                    </p>
-                  </div>
-                );
-              })}
+              {reviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
+              ))}
             </div>
           </div>
 

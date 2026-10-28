@@ -3,6 +3,7 @@
 import { useQuery } from "@apollo/client";
 import { useState } from "react";
 import { OverviewView, type Period } from "@/components/app/partner/overview-view";
+import { LATEST_REVIEWS_QUERY } from "@/lib/booking/queries";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { PARTNER_COUNTS_QUERY, PARTNER_DASHBOARD_QUERY } from "@/lib/operator/queries";
 
@@ -13,6 +14,7 @@ export default function PartnerOverviewPage() {
   const { user } = useCurrentUser();
   const { data, loading } = useQuery(PARTNER_DASHBOARD_QUERY, { variables: { days: DAYS[period] }, fetchPolicy: "cache-and-network" });
   const { data: counts } = useQuery(PARTNER_COUNTS_QUERY, { fetchPolicy: "cache-first" });
+  const { data: latest } = useQuery(LATEST_REVIEWS_QUERY, { fetchPolicy: "cache-and-network" });
   const res = data?.partnerDashboard;
   return (
     <OverviewView
@@ -24,6 +26,7 @@ export default function PartnerOverviewPage() {
       planCount={counts?.partnerPlans?.count ?? 0}
       period={period}
       onPeriod={setPeriod}
+      reviews={latest?.latestReviews?.reviews ?? []}
     />
   );
 }

@@ -115,6 +115,34 @@ export const SUBMIT_REVIEW_MUTATION = gql`
   }
 `;
 
+export const LATEST_REVIEWS_QUERY = gql`
+  query LatestReviews($limit: Int) {
+    latestReviews(limit: $limit) {
+      success
+      message
+      reviews {
+        id
+        stars
+        text
+        travellerName
+        country
+        travelledAt
+        gaps
+        plan {
+          id
+          slug
+          titleEn
+          titleMn
+          operator {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
 // —— partner orders ——
 
 export const ORDERS_QUERY = gql`

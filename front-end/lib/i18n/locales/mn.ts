@@ -272,6 +272,8 @@ const mn = {
     nGaps: "{n} зөрүү",
     travelled: "{d}-д аялсан · баталгаат захиалга",
     noReviews: "Сэтгэгдэл алга — энэ төлөвлөгөө itours дээр шинэ.",
+    latestReviews: "Аялагчдын сүүлийн сэтгэгдэл",
+    noReviewsYet: "Сэтгэгдэл алга.",
     departure: "Гаралт",
     room: "Өрөө",
     TWIN: "Хоёр хүний",

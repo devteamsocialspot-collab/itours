@@ -7,6 +7,7 @@ import { ReviewModel } from '../../../models/booking/review.model';
 
 import { PAY_METHOD } from '../../../types/booking/booking.type';
 import { TContextUser, TTokenValue } from '../../../types/common.type';
+import { STAFF_ROLES } from '../../../types/user/role.type';
 
 import { fail, ok } from '../../../utils';
 
@@ -49,6 +50,19 @@ export default {
         return {
           ...ok(context.lang),
           reviews: await ReviewController.getPlanReviews(doc.planId, doc.limit)
+        };
+      } catch (error) {
+        return { ...fail(error, context.lang), reviews: [] };
+      }
+    },
+    latestReviews: async (_, doc: { limit?: number }, context: TContextUser) => {
+      try {
+        const operatorId = STAFF_ROLES.includes(context.userRole)
+          ? null
+          : await UserController.operatorIdOf(context.userId);
+        return {
+          ...ok(context.lang),
+          reviews: await ReviewController.getLatestReviews(operatorId, doc.limit)
         };
       } catch (error) {
         return { ...fail(error, context.lang), reviews: [] };

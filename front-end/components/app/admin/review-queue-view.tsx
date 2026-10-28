@@ -3,12 +3,13 @@
 import { useMutation } from "@apollo/client";
 import Link from "next/link";
 import { useState } from "react";
+import { ReviewCard } from "@/components/app/review-card";
 import { Photo } from "@/components/app/ui";
 import { useReport } from "@/lib/hooks/use-report";
 import { useLocale, useT } from "@/lib/i18n";
 import { ADMIN_COUNTS_QUERY } from "@/lib/operator/queries";
 import { APPROVE_PLAN_MUTATION, REQUEST_FIXES_MUTATION } from "@/lib/plan/queries";
-import type { Plan } from "@/lib/types";
+import type { DashboardReview, Plan } from "@/lib/types";
 import { day, mntShort } from "@/lib/utils";
 
 type Stats = { verifiedOperators: number; pendingPlans: number; gmvUsd: number; bookings30d: number };
@@ -89,8 +90,20 @@ function QueueItem({ plan, onDone }: { plan: Plan; onDone: () => void }) {
   );
 }
 
-/** Marketplace numbers and the plan review queue, oldest submission first (wireframe 3a). */
-export function ReviewQueueView({ plans, stats, loading, refetch }: { plans: Plan[]; stats: Stats | null; loading: boolean; refetch: () => void }) {
+/** Marketplace numbers, the plan review queue (oldest submission first, wireframe 3a), then the newest traveller reviews. */
+export function ReviewQueueView({
+  plans,
+  stats,
+  loading,
+  refetch,
+  reviews,
+}: {
+  plans: Plan[];
+  stats: Stats | null;
+  loading: boolean;
+  refetch: () => void;
+  reviews: DashboardReview[];
+}) {
   const t = useT();
   return (
     <>
@@ -131,6 +144,14 @@ export function ReviewQueueView({ plans, stats, loading, refetch }: { plans: Pla
         {plans.length === 0 && <div className="panel muted">{loading ? t("common.loading") : t("admin.queueEmpty")}</div>}
         {plans.map((plan) => (
           <QueueItem key={plan.id} plan={plan} onDone={refetch} />
+        ))}
+      </div>
+
+      <h4 style={{ margin: "26px 0 12px" }}>{t("plan.latestReviews")}</h4>
+      {reviews.length === 0 && <div className="panel muted">{t("plan.noReviewsYet")}</div>}
+      <div className="grid-2" style={{ gap: 12 }}>
+        {reviews.map((review) => (
+          <ReviewCard key={review.id} review={review} showOperator />
         ))}
       </div>
     </>

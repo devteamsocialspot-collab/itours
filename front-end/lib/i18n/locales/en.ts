@@ -273,6 +273,8 @@ const en: typeof mn = {
     nGaps: "{n} gap(s)",
     travelled: "Travelled {d} · verified booking",
     noReviews: "No reviews yet — this plan is new on itours.",
+    latestReviews: "Latest traveller reviews",
+    noReviewsYet: "No reviews yet.",
     departure: "Departure",
     room: "Room",
     TWIN: "Twin share",

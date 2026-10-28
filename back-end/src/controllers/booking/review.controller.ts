@@ -4,6 +4,8 @@ import { ReviewModel } from '../../models/booking/review.model';
 import { DepartureModel } from '../../models/plan/departure.model';
 import { BookingModel } from '../../models/booking/booking.model';
 import { ClaimModel } from '../../models/plan/claim.model';
+import { PlanModel } from '../../models/plan/plan.model';
+import { OperatorModel } from '../../models/operator/operator.model';
 import { UserModel } from '../../models/user/user.model';
 
 import { BOOKING_STAGE, TReviewCreate } from '../../types/booking/booking.type';
@@ -74,6 +76,24 @@ export default class ReviewController {
     return ReviewModel.findAll({
       where: { planId },
       include: this.include(),
+      order: [['createdAt', 'DESC']],
+      limit: Math.min(Math.max(limit, 1), 50)
+    });
+  }
+
+  /** The dashboards' newest reviews: one agency's plans, or the whole marketplace when operatorId is null. */
+  static async getLatestReviews(operatorId: string | null, limit = 6) {
+    return ReviewModel.findAll({
+      include: [
+        ...this.include(),
+        {
+          model: PlanModel,
+          as: 'plan',
+          attributes: ['id', 'slug', 'titleEn', 'titleMn', 'operatorId'],
+          where: operatorId ? { operatorId } : undefined,
+          include: [{ model: OperatorModel, as: 'operator', attributes: ['id', 'name'] }]
+        }
+      ],
       order: [['createdAt', 'DESC']],
       limit: Math.min(Math.max(limit, 1), 50)
     });

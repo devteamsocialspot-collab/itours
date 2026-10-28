@@ -2,8 +2,9 @@
 
 import { CircleAlert } from "lucide-react";
 import Link from "next/link";
+import { ReviewCard } from "@/components/app/review-card";
 import { useLocale, useT } from "@/lib/i18n";
-import type { PartnerDashboard, User } from "@/lib/types";
+import type { DashboardReview, PartnerDashboard, User } from "@/lib/types";
 import { day, mntShort, usd } from "@/lib/utils";
 
 export type Period = "7" | "30" | "season";
@@ -17,6 +18,7 @@ type Props = {
   planCount: number;
   period: Period;
   onPeriod: (period: Period) => void;
+  reviews: DashboardReview[];
 };
 
 /** The heavier the week, the deeper the copper. */
@@ -25,7 +27,7 @@ const STATE_TAG: Record<string, string> = { FULL: "tag-accent-2", NEEDS_MORE: "t
 const delta = (n: number) => `${n >= 0 ? "+" : ""}${n}`;
 
 /** The agency's overview (wireframe 2a): bookings, revenue, score, the gap to fix, what departs next. */
-export function OverviewView({ user, dashboard: d, loading, error, needsAction, planCount, period, onPeriod }: Props) {
+export function OverviewView({ user, dashboard: d, loading, error, needsAction, planCount, period, onPeriod, reviews }: Props) {
   const t = useT();
   const { locale } = useLocale();
   const maxWeek = Math.max(1, ...(d?.weeks ?? []).map((w) => w.seats));
@@ -226,6 +228,18 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+
+          <div className="panel" style={{ marginTop: 16 }}>
+            <div className="heading" style={{ fontSize: 16, marginBottom: 12 }}>
+              {t("plan.latestReviews")}
+            </div>
+            {reviews.length === 0 && <p className="muted">{t("plan.noReviewsYet")}</p>}
+            <div className="grid-2" style={{ gap: 12 }}>
+              {reviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
+              ))}
             </div>
           </div>
           <p className="xs muted" style={{ marginTop: 14 }}>
