@@ -1,9 +1,9 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import Form from "next/form";
 import Link from "next/link";
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { SaveButton, useSavedIds } from "@/components/app/save-button";
 import { Footer, SiteHeader } from "@/components/app/site-header";
 import { Con, Photo, Pro, Score, Stars } from "@/components/app/ui";
@@ -45,6 +45,9 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
   const t = useT();
   const { locale } = useLocale();
   const saved = useSavedIds();
+  // on a phone the rail folds up above the results; the count tells what it's hiding
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const active = [params.area, params.score, params.diff].filter(Boolean).length + params.sleep.length + params.db.length + params.op.length + (params.max < 3000 ? 1 : 0);
   const { q, month, pax, sort } = params;
   const title = `${q ? t("search.resultsFor", { n: plans.length, q }) : t("search.resultsTitle", { n: plans.length })}${params.area ? ` · ${t(`regions.${params.area}.name`)}` : ""}${month ? `, ${monthYear(month, locale)}` : ""}`;
   const keep = { q, month, days: params.days, pax: String(pax) };
@@ -59,13 +62,18 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
     <>
       <SiteHeader />
       <main className="wrap search-layout">
-        <AutoForm action="/search" className="filter-rail">
+        <AutoForm action="/search" className={filtersOpen ? "filter-rail open" : "filter-rail"}>
           {Object.entries(keep).map(([key, value]) => value && <input key={key} type="hidden" name={key} value={value} />)}
           <input type="hidden" name="sort" value={sort} />
           <div className="row-base" style={{ justifyContent: "space-between", marginBottom: 16 }}>
-            <div className="heading" style={{ fontSize: 16 }}>
+            <div className="heading hide-m" style={{ fontSize: 16 }}>
               {t("search.filters")}
             </div>
+            <button type="button" className="rail-toggle show-m" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>
+              {t("search.filters")}
+              {active > 0 && ` · ${active}`}
+              <ChevronDown size={16} />
+            </button>
             <Link href={`/search?q=${encodeURIComponent(q)}`} className="btn btn-ghost" style={{ fontSize: 12 }}>
               {t("search.clear")}
             </Link>
@@ -171,9 +179,9 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
           </noscript>
         </AutoForm>
 
-        <div style={{ padding: "22px 32px 34px 10px", minWidth: 0 }}>
+        <div className="search-results">
           {/* a new search: where, when, how many; the rail's filters start over */}
-          <form action="/search" className="search-pill hide-m" style={{ maxWidth: "none", marginBottom: 20, boxShadow: "var(--shadow-sm)" }}>
+          <form action="/search" className="search-pill" style={{ maxWidth: "none", marginBottom: 20, boxShadow: "var(--shadow-sm)" }}>
             <input name="q" defaultValue={q} placeholder={t("home.wherePh")} style={{ fontWeight: 600, flex: 1 }} aria-label={t("home.where")} />
             <span className="sep" />
             <input name="month" type="month" defaultValue={month} aria-label={t("home.when")} />

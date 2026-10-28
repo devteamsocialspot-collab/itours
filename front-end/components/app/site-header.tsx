@@ -61,7 +61,7 @@ export function SiteHeader({ variant = "bar", children, actions }: { variant?: "
         <nav className="site-links hide-m">
           <NavLinks />
         </nav>
-        <div className="row" style={{ marginLeft: 18 }}>
+        <div className="row site-actions">
           {actions}
           <AccountMenu />
           <MobileMenu />

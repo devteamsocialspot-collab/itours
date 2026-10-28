@@ -48,15 +48,15 @@ export function TripView({ booking }: { booking: Booking }) {
     <>
       <SiteHeader />
       <main className="wrap" style={{ maxWidth: 860, paddingBottom: 34 }}>
-        <div className="row" style={{ padding: "34px 30px 0", gap: 20, alignItems: "flex-start" }}>
+        <div className="row gutter" style={{ paddingTop: 34, gap: 20, alignItems: "flex-start" }}>
           <div
             className="score"
             style={{ width: 56, height: 56, background: cancelled ? "var(--color-neutral-500)" : held ? "var(--color-accent)" : "var(--color-accent-2-600)", color: "#eaeee9" }}
           >
             <Check size={28} strokeWidth={3} />
           </div>
-          <div>
-            <h1 style={{ fontSize: 36, lineHeight: 1.08, margin: "0 0 8px" }}>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontSize: "clamp(26px, 7vw, 36px)", lineHeight: 1.08, margin: "0 0 8px" }}>
               {cancelled ? t("trip.cancelledTitle") : t(held ? "trip.heldTitle" : "trip.confirmedTitle", { name: firstName })}
             </h1>
             {!cancelled && (
@@ -74,7 +74,7 @@ export function TripView({ booking }: { booking: Booking }) {
           </div>
         </div>
 
-        <div style={{ padding: "26px 30px 0" }}>
+        <div className="gutter" style={{ paddingTop: 26 }}>
           <div className="panel two-col" style={{ borderRadius: 28, padding: 20, display: "grid", gridTemplateColumns: "180px 1fr", gap: 20 }}>
             <Photo src={booking.plan.photos[0]} alt={booking.plan.region} style={{ borderRadius: 20, height: 132 }} />
             <div>
@@ -109,7 +109,7 @@ export function TripView({ booking }: { booking: Booking }) {
         </div>
 
         {!cancelled && (
-          <div className="two-col" style={{ padding: "26px 30px 0", display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, alignItems: "start" }}>
+          <div className="two-col gutter" style={{ paddingTop: 26, display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, alignItems: "start" }}>
             <div>
               <h4 style={{ margin: "0 0 12px" }}>{t("trip.whatNext")}</h4>
               <div className="col" style={{ gap: 12 }}>

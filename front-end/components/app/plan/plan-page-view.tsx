@@ -129,7 +129,7 @@ export function PlanPageView({ plan, reviews, initialDep, initialPax }: { plan: 
                     .join(" · ")}
                 </div>
               </div>
-              <div className="row ml-auto" style={{ gap: 22 }}>
+              <div className="row ml-auto" style={{ gap: 22, flexWrap: "wrap" }}>
                 {stats?.stars != null && (
                   <div className="right">
                     <div className="heading" style={{ fontSize: 18, lineHeight: 1 }}>

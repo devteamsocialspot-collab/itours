@@ -96,7 +96,7 @@ export function OperatorFormDialog({ open, onOpenChange, onSaved }: { open: bool
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto">
+      <DialogContent>
         {added ? (
           <div className="space-y-4">
             <DialogHeader>

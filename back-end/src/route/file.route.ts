@@ -32,8 +32,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     if (!req.file) throw new Error('error.uploadFailed');
     const url = await FileController.uploadImage(
       req.file.buffer,
-      req.file.mimetype,
-      String(req.query.prefix || 'uploads')
+      req.file.mimetype
     );
     res.json({ success: true, message: t('response.ok', lang), url });
   } catch (error) {

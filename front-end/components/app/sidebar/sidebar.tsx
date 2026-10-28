@@ -17,7 +17,7 @@ const daysToPeak = () => {
   return Math.ceil((peak.getTime() - now.getTime()) / 86400000);
 };
 
-/** The dark back-office column (wireframes 2a, 3a). Hidden in print. */
+/** The dark back-office column (wireframes 2a, 3a); a bar across the top on a phone. Hidden in print. */
 export function Sidebar({ area }: { area: "partner" | "admin" }) {
   const t = useT();
   const pathname = usePathname();
@@ -73,11 +73,11 @@ export function Sidebar({ area }: { area: "partner" | "admin" }) {
         <div style={{ height: 1, background: "rgba(247, 244, 239,.14)", margin: "10px 8px" }} />
         {partner && operator && <a href={`/operators/${operator.slug}`}>{t("nav.publicPage")}</a>}
         {!partner && <Link href="/">{t("nav.marketplace")}</Link>}
-        <button type="button" onClick={logout} style={{ width: "100%" }}>
+        <button type="button" onClick={logout}>
           {t("common.logout")}
         </button>
       </nav>
-      <div style={{ margin: "16px 8px" }}>
+      <div className="side-lang">
         <LanguageToggle />
       </div>
       {partner && (

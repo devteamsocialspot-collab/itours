@@ -53,20 +53,20 @@ function QueueItem({ plan, onDone }: { plan: Plan; onDone: () => void }) {
         )}
         {plan.photos.some((url) => url.includes("wikimedia")) && <span className="tag tag-neutral">{t("admin.stockPhotos")}</span>}
       </div>
-      <div className="row ml-auto" style={{ flexWrap: "wrap" }}>
+      <div className="row ml-auto" style={{ flexWrap: "wrap", minWidth: 0 }}>
         <Link href={`/plans/${plan.slug}`} target="_blank" className="btn btn-secondary btn-xs">
           {t("common.open")}
         </Link>
         <form
           className="row"
-          style={{ gap: 6 }}
+          style={{ gap: 6, minWidth: 0 }}
           onSubmit={async (event) => {
             event.preventDefault();
             const { data } = await requestFixes({ variables: { id: plan.id, note } });
             await report(data?.requestPlanFixes);
           }}
         >
-          <input className="input" style={{ width: 170, minHeight: 30, fontSize: 12 }} placeholder={t("admin.fixPh")} value={note} onChange={(e) => setNote(e.target.value)} />
+          <input className="input" style={{ width: 170, minWidth: 0, minHeight: 30, fontSize: 12 }} placeholder={t("admin.fixPh")} value={note} onChange={(e) => setNote(e.target.value)} />
           <button className={`btn btn-xs ${issues.length ? "btn-primary" : "btn-secondary"}`} disabled={sending}>
             {t("admin.requestFixes")}
           </button>

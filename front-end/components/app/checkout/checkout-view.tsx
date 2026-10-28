@@ -79,8 +79,8 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
       </header>
 
       <main
-        className="wrap two-col"
-        style={{ maxWidth: 1060, display: "grid", gridTemplateColumns: "1fr 336px", gap: 30, padding: "26px 30px 36px", alignItems: "start" }}
+        className="wrap gutter two-col"
+        style={{ maxWidth: 1060, display: "grid", gridTemplateColumns: "1fr 336px", gap: 30, paddingBlock: "26px 36px", alignItems: "start" }}
       >
         <form onSubmit={submit}>
           <h2 style={{ margin: "0 0 4px" }}>{t("book.howPay")}</h2>
@@ -110,11 +110,12 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
           {/* demo checkout: these fields are never read, so card data never leaves the browser */}
           {method === "CARD" && (
             <div className="grid-2" style={{ gap: 12, marginBottom: 10 }}>
-              <div className="field" style={{ gridColumn: "span 2" }}>
+              {/* 1 / -1, not span 2: on a phone the grid has one column, and span 2 would add a second */}
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>{t("book.nameOnCard")}</label>
                 <input className="input" defaultValue={user?.name} autoComplete="off" />
               </div>
-              <div className="field" style={{ gridColumn: "span 2" }}>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>{t("book.cardNumber")}</label>
                 <input className="input" placeholder="4242 4242 4242 4242" inputMode="numeric" autoComplete="off" />
               </div>
@@ -153,7 +154,8 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
             <Link href={`/plans/${plan.slug}?dep=${dep.id}&pax=${pax}`} className="btn btn-secondary" style={{ fontSize: 14 }}>
               ← {t("common.back")}
             </Link>
-            <button className="btn btn-cta" disabled={loading} style={{ fontSize: 15, paddingInline: 26, paddingBlock: 11 }}>
+            {/* the label runs long ("$1,240 төлж суудлаа баталгаажуулах"): it wraps on a narrow phone */}
+            <button className="btn btn-cta" disabled={loading} style={{ fontSize: 15, paddingInline: 26, paddingBlock: 11, whiteSpace: "normal" }}>
               {t("book.payAndConfirm", { p: usd(total) })}
             </button>
           </div>

@@ -29,7 +29,7 @@ export function OperatorPageView({ operator, plans, area }: { operator: Operator
       </SiteHeader>
       <main className="wrap" style={{ maxWidth: 1060, paddingBottom: 34 }}>
         <Photo src={operator.coverUrl} alt={operator.name} style={{ height: 190 }} />
-        <div className="row" style={{ padding: "0 30px", marginTop: -44, position: "relative", alignItems: "flex-end", gap: 18, flexWrap: "wrap" }}>
+        <div className="row gutter" style={{ marginTop: -44, position: "relative", alignItems: "flex-end", gap: 18, flexWrap: "wrap" }}>
           <div className="score" style={{ width: 96, height: 96, background: operator.color, border: "5px solid var(--color-bg)", color: "#ffffff", fontSize: 30 }}>
             {operator.name[0]}
           </div>
@@ -44,7 +44,7 @@ export function OperatorPageView({ operator, plans, area }: { operator: Operator
           </div>
         </div>
 
-        <div className="grid-5 keep-m" style={{ padding: "24px 30px 0" }}>
+        <div className="grid-5 keep-m gutter" style={{ paddingTop: 24 }}>
           <div className="panel-sage" style={tile}>
             <div className="heading" style={big}>
               {stats?.score ?? "–"}
@@ -85,7 +85,7 @@ export function OperatorPageView({ operator, plans, area }: { operator: Operator
           </div>
         </div>
 
-        <div className="two-col" style={{ padding: "26px 30px 0", display: "grid", gridTemplateColumns: "1fr 320px", gap: 28, alignItems: "start" }}>
+        <div className="two-col gutter" style={{ paddingTop: 26, display: "grid", gridTemplateColumns: "1fr 320px", gap: 28, alignItems: "start" }}>
           <div>
             <h4 style={{ margin: "0 0 8px" }}>{t("operatorPage.whoWeAre")}</h4>
             <p style={{ fontSize: 14, lineHeight: 1.65, color: "var(--ink-80)", margin: "0 0 22px" }}>{operator.about}</p>

@@ -14,7 +14,7 @@ export function PlansListView({ plans, loading, creating, onCreate }: { plans: P
   const sorted = [...plans].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
   return (
     <>
-      <div className="row" style={{ marginBottom: 18 }}>
+      <div className="row" style={{ marginBottom: 18, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0 }}>{t("partner.plansTitle")}</h2>
         <button type="button" className="btn btn-primary btn-sm ml-auto" disabled={creating} onClick={onCreate}>
           + {t("partner.newPlan")}
@@ -25,7 +25,8 @@ export function PlansListView({ plans, loading, creating, onCreate }: { plans: P
         {sorted.map((plan) => (
           <Link key={plan.id} href={`/partner/plans/${plan.id}`} className="plain queue">
             <Photo src={plan.photos[0]} alt={plan.region || "—"} />
-            <div className="grow">
+            {/* the basis keeps the title beside the photo on a phone; the tags wrap under it instead */}
+            <div className="grow" style={{ flexBasis: 140 }}>
               <div style={{ fontSize: 14, fontWeight: 700 }}>{plan.titleEn || t("partner.untitled")}</div>
               <div className="small muted">
                 {[plan.region, t("plan.nDays", { n: plan.days }), plan.priceUsd ? usd(plan.priceUsd) : null, t("partner.onSale", { n: plan.departures.length })]

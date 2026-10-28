@@ -29,18 +29,16 @@ export default class FileController {
     if (size > UPLOAD_MAX_MB * MB) throw new Error('error.fileTooLarge');
   }
 
-  /** itours/<folder>/<hash>.<ext>. Content-hashed, so re-uploading the same file is free. */
-  static _objectKey(file: Buffer, mimetype: string, prefix: string) {
-    // the prefix comes from the browser: one plain folder name, so a key can never leave ROOT_FOLDER
-    const folder = /^[a-z0-9-]{1,32}$/.test(prefix) ? prefix : 'uploads';
+  /** itours/<hash>.<ext>. Content-hashed, so re-uploading the same file is free. */
+  static _objectKey(file: Buffer, mimetype: string) {
     const hash = createHash('sha1').update(file).digest('hex').slice(0, 32);
-    return `${ROOT_FOLDER}/${folder}/${hash}.${TYPES[mimetype]}`;
+    return `${ROOT_FOLDER}/${hash}.${TYPES[mimetype]}`;
   }
 
   /** Returns the public URL. */
-  static async uploadImage(file: Buffer, mimetype: string, prefix = 'uploads') {
+  static async uploadImage(file: Buffer, mimetype: string) {
     this._checkFile(mimetype, file.length);
-    const key = this._objectKey(file, mimetype, prefix);
+    const key = this._objectKey(file, mimetype);
 
     await client.send(
       new PutObjectCommand({

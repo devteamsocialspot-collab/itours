@@ -49,7 +49,7 @@ export function CompareView({ plans, loading }: { plans: CardPlan[]; loading: bo
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ maxWidth: 1000, padding: "28px 30px 40px" }}>
+      <main className="wrap gutter" style={{ maxWidth: 1000, paddingBlock: "28px 40px" }}>
         <div className="row-base" style={{ marginBottom: 14, flexWrap: "wrap" }}>
           <h3 style={{ margin: 0 }}>{t("compare.title")}</h3>
           <span className="small muted ml-auto">{t("compare.lead")}</span>
@@ -59,48 +59,50 @@ export function CompareView({ plans, loading }: { plans: CardPlan[]; loading: bo
             {t("compare.nothingSaved")} <Link href="/search">{t("nav.search")} →</Link>
           </p>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th />
-                {plans.map((plan) => (
-                  <th key={plan.id}>
-                    <Link href={`/plans/${plan.slug}`} className="plain">
-                      {plan.operator.name} · {t("plan.nDays", { n: plan.days })}
-                    </Link>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(([label, render, value, lowIsGood]) => {
-                const style = value ? tone(value, Boolean(lowIsGood)) : undefined;
-                return (
-                  <tr key={label}>
-                    <td className="muted">{label}</td>
-                    {plans.map((plan) => (
-                      <td key={plan.id} style={style?.(plan)}>
-                        {render(plan)}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-              <tr>
-                <td />
-                {plans.map((plan, i) => (
-                  <td key={plan.id}>
-                    <div className="row" style={{ flexWrap: "wrap" }}>
-                      <Link href={`/plans/${plan.slug}#book`} className={`btn btn-xs ${i === 0 ? "btn-cta" : "btn-secondary"}`}>
-                        {t("compare.book")}
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th />
+                  {plans.map((plan) => (
+                    <th key={plan.id}>
+                      <Link href={`/plans/${plan.slug}`} className="plain">
+                        {plan.operator.name} · {t("plan.nDays", { n: plan.days })}
                       </Link>
-                      <SaveButton planId={plan.id} />
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([label, render, value, lowIsGood]) => {
+                  const style = value ? tone(value, Boolean(lowIsGood)) : undefined;
+                  return (
+                    <tr key={label}>
+                      <td className="muted">{label}</td>
+                      {plans.map((plan) => (
+                        <td key={plan.id} style={style?.(plan)}>
+                          {render(plan)}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+                <tr>
+                  <td />
+                  {plans.map((plan, i) => (
+                    <td key={plan.id}>
+                      <div className="row" style={{ flexWrap: "wrap" }}>
+                        <Link href={`/plans/${plan.slug}#book`} className={`btn btn-xs ${i === 0 ? "btn-cta" : "btn-secondary"}`}>
+                          {t("compare.book")}
+                        </Link>
+                        <SaveButton planId={plan.id} />
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
       </main>
       <Footer />

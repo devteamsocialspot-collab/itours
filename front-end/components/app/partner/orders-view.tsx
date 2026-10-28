@@ -3,7 +3,7 @@
 import { useMutation } from "@apollo/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ordersCsvUrl } from "@/lib/api";
 import { readSessionToken } from "@/lib/auth";
@@ -87,6 +87,7 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
   const { locale } = useLocale();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sel = orders.find((o) => o.id === selectedId) ?? orders[0];
+  const detail = useRef<HTMLDivElement>(null);
   const [guide, setGuide] = useState("");
   const [driver, setDriver] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -133,19 +134,19 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
   };
 
   return (
-    <div style={{ margin: "-22px -28px 0" }}>
-      <div className="topbar-dark" style={{ flexWrap: "wrap" }}>
+    <>
+      <div className="topbar-dark bleed" style={{ flexWrap: "wrap" }}>
         <Link href="/partner">← {t("nav.overview")}</Link>
         <div className="heading" style={{ fontSize: 17, color: "var(--color-bg)" }}>
           {t("orders.title")}
         </div>
-        <div className="row ml-auto">
+        <div className="row ml-auto" style={{ minWidth: 0 }}>
           <input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             className="input"
             placeholder={t("orders.search")}
-            style={{ width: 240, background: "rgba(247, 244, 239,.1)", borderColor: "rgba(247, 244, 239,.25)", color: "var(--color-bg)" }}
+            style={{ width: 240, minWidth: 0, background: "rgba(247, 244, 239,.1)", borderColor: "rgba(247, 244, 239,.25)", color: "var(--color-bg)" }}
           />
           <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv}>
             {t("orders.exportCsv")}
@@ -153,8 +154,8 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
         </div>
       </div>
 
-      <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 400px", alignItems: "start" }}>
-        <div style={{ padding: "18px 22px 28px 28px", minWidth: 0 }}>
+      <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 366px", gap: 28, padding: "18px 0 28px", alignItems: "start" }}>
+        <div style={{ minWidth: 0 }}>
           <div className="row" style={{ marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
             <div className="wrap-row">
               {TABS.map((key) => (
@@ -192,43 +193,54 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
             </label>
           </div>
           {error && <p className="error">{error}</p>}
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t("orders.traveller")}</th>
-                <th>{t("orders.planDeparture")}</th>
-                <th>{t("orders.pax")}</th>
-                <th>{t("orders.value")}</th>
-                <th>{t("orders.status")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.length === 0 && (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="muted">
-                    {loading ? t("common.loading") : t("common.nothing")}
-                  </td>
+                  <th>{t("orders.traveller")}</th>
+                  <th>{t("orders.planDeparture")}</th>
+                  <th>{t("orders.pax")}</th>
+                  <th>{t("orders.value")}</th>
+                  <th>{t("orders.status")}</th>
                 </tr>
-              )}
-              {orders.map((o) => (
-                <tr key={o.id} className={o.id === sel?.id ? "sel" : ""} onClick={() => setSelectedId(o.id)} style={{ cursor: "pointer" }}>
-                  <td>
-                    <div className="bold">{o.traveller?.name}</div>
-                    <div className="xs muted">
-                      {o.code} · {o.traveller?.country || "—"} · {ago(o.createdAt)}
-                    </div>
-                  </td>
-                  <td>
-                    <div>{o.plan.titleEn.split(":")[0]}</div>
-                    <div className="xs muted">{day(o.departure.startDate, locale)}</div>
-                  </td>
-                  <td>{o.pax}</td>
-                  <td className="nowrap">{o.method === "CARD" ? usd(o.totalUsd) : mnt(o.totalUsd)}</td>
-                  <td>{statusTag(o)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {orders.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="muted">
+                      {loading ? t("common.loading") : t("common.nothing")}
+                    </td>
+                  </tr>
+                )}
+                {orders.map((o) => (
+                  <tr
+                    key={o.id}
+                    className={o.id === sel?.id ? "sel" : ""}
+                    onClick={() => {
+                      setSelectedId(o.id);
+                      // stacked on a phone (the CSS breakpoint), the order's panel is under the list: bring it up
+                      if (matchMedia("(max-width: 900px)").matches) detail.current?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td>
+                      <div className="bold">{o.traveller?.name}</div>
+                      <div className="xs muted">
+                        {o.code} · {o.traveller?.country || "—"} · {ago(o.createdAt)}
+                      </div>
+                    </td>
+                    <td>
+                      <div>{o.plan.titleEn.split(":")[0]}</div>
+                      <div className="xs muted">{day(o.departure.startDate, locale)}</div>
+                    </td>
+                    <td>{o.pax}</td>
+                    <td className="nowrap">{o.method === "CARD" ? usd(o.totalUsd) : mnt(o.totalUsd)}</td>
+                    <td>{statusTag(o)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <Pager
             page={page}
             count={count}
@@ -240,7 +252,7 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
         </div>
 
         {sel && (
-          <div style={{ padding: "18px 28px 28px 6px" }}>
+          <div ref={detail}>
             <div className="panel" style={{ borderRadius: 28, padding: 20, boxShadow: "var(--shadow-md)" }}>
               <div className="row" style={{ alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
                 <div className="avatar" style={{ width: 42, height: 42, background: "var(--color-neutral-400)" }}>
@@ -371,6 +383,6 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

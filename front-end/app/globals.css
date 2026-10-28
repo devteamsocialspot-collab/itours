@@ -299,6 +299,9 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
   }
   .table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+  /* a wide table scrolls in here instead of widening the page. A wrapper, not overflow on the table itself:
+     Tailwind's own `table` utility (display: table) outranks any display set on .table from this layer */
+  .table-wrap { overflow-x: auto; }
 
   /* — dialog — */
   .dialog-backdrop {
@@ -340,6 +343,7 @@
 
   .wrap { width: 100%; max-width: 1280px; margin: 0 auto; }
   .pad { padding-inline: 40px; }
+  .gutter { padding-inline: 30px; } /* the narrower pages' (trips, checkout, compare…) side margin */
   .muted { color: var(--ink-55); }
   .small { font-size: 12px; }
   .xs { font-size: 11px; }
@@ -362,6 +366,7 @@
   }
   .divider { height: 1px; background: var(--color-divider); margin: 12px 0; }
   .btn { white-space: nowrap; }
+  .btn-block { white-space: normal; } /* full width already: a long label wraps instead of overflowing */
   .btn-sm { font-size: 13px; }
   .btn-xs { font-size: 12.5px; }
   button.btn-ghost { border: 0; }
@@ -382,6 +387,7 @@
   .site-links a { color: inherit; text-decoration: none; font-size: 14px; white-space: nowrap; }
   .site-links a:hover, .site-links a[aria-current] { color: var(--color-cta); }
   .site-bar .plain { white-space: nowrap; }
+  .site-actions { margin-left: 18px; }
   /* the header is brand blue: light text, gold accents; the ink tokens flip so inline styles inside still read */
   .topbar, .site-bar {
     background: var(--color-accent); color: #fff;
@@ -494,6 +500,9 @@
   .search-layout { display: grid; grid-template-columns: 270px 1fr; align-items: start; }
   .filter-rail { padding: 22px 22px 30px 32px; }
   .filter-rail section { margin-bottom: 22px; }
+  .rail-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font-family: var(--font-heading); font-size: 16px; }
+  .rail-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .search-results { padding: 22px 32px 34px 10px; min-width: 0; }
   .chip { position: relative; cursor: pointer; }
   .chip input { position: absolute; opacity: 0; width: 0; height: 0; }
   .chip span { display: inline-flex; padding: 3px 10px; font-size: 11px; border-radius: 999px; border: 1px solid var(--color-accent); color: var(--color-accent); }
@@ -590,7 +599,9 @@
   .side .count { margin-left: auto; font-size: 11px; color: rgba(247, 244, 239, 0.45); }
   .side .badge { margin-left: auto; background: var(--color-accent-600); color: var(--color-bg); font-size: 10.5px; border-radius: 999px; padding: 1px 7px; }
   .side-tip { margin-top: auto; background: rgba(247, 244, 239, 0.07); border-radius: 18px; padding: 14px; }
+  .side-lang { margin: 16px 8px; }
   .main-pad { padding: 22px 28px 30px; min-width: 0; }
+  .bleed { margin: -22px -28px 0; } /* cancels .main-pad's padding: a bar across the whole column (mobile value below) */
   .chart { display: flex; align-items: flex-end; gap: 9px; height: 132px; }
   .chart > div { flex: 1; border-radius: 8px 8px 3px 3px; min-height: 3px; position: relative; }
   .chart > div span { position: absolute; top: -16px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--ink-55); }
@@ -635,22 +646,34 @@
 
   /* — mobile (wireframes 1k, 1l) — */
   @media (max-width: 900px) {
-    .pad, .site-bar > .wrap { padding-inline: 16px; }
+    .pad, .gutter, .site-bar > .wrap { padding-inline: 16px; }
     .topbar { padding: 10px 16px; flex-wrap: wrap; }
-    .site-bar > .wrap { gap: 12px; }
-    .site-bar .hide-m, .topbar .hide-m { display: none; }
-    .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
-    .grid-4.keep-m, .grid-5.keep-m { grid-template-columns: 1fr 1fr; }
+    .site-bar > .wrap { gap: 8px; }
+    .site-actions { margin-left: 0; gap: 6px; }
+    .site-bar .seg-opt { padding-inline: 9px; } /* signed out on a 320px phone, the bar's right side needs these 12px */
+    .hide-m { display: none !important; } /* !important: it has to beat whatever display the element's own classes set */
+    /* a segmented control with more options than a narrow phone fits wraps to a second row (18px is still a pill on one) */
+    .seg { flex-wrap: wrap; border-radius: 18px; }
+    .seg-opt { flex: 1 1 auto; justify-content: center; }
+    /* minmax(0, …), not a bare 1fr: a wide child (a table in its scroll box) must not stretch the column past the screen */
+    .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: minmax(0, 1fr); }
+    .grid-4.keep-m, .grid-5.keep-m { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .search-layout { grid-template-columns: 1fr; }
     .filter-rail { padding: 16px; }
-    .filter-rail > details:not([open]) > :not(summary) { display: none; }
+    .filter-rail:not(.open) > section { display: none; } /* folded above the results until the toggle opens it */
+    .search-results { padding: 4px 16px 30px; }
+    /* the search pill: "where" gets its own row, then month, travellers and the button */
+    .search-pill { display: grid; grid-template-columns: 1fr auto auto; gap: 8px 10px; border-radius: 22px; }
+    .search-pill input[name="q"] { grid-column: 1 / -1; }
+    .search-pill .sep, .search-pill > .small { display: none; }
+    .banner { flex-wrap: wrap; }
     .result { grid-template-columns: 1fr; }
     .result .photo { height: 160px; }
     .result-side { border-left: 0; padding-left: 0; }
     .gallery { grid-template-columns: 1fr; grid-template-rows: 210px; padding: 0; gap: 0; }
     .gallery .photo:not(:first-child) { display: none; }
     .gallery .photo:first-child { border-radius: 0; grid-row: auto; }
-    .detail { grid-template-columns: 1fr; padding: 16px 16px 110px; gap: 20px; }
+    .detail { grid-template-columns: 1fr; padding: 16px 16px 40px; gap: 20px; }
     .detail h1 { font-size: 26px !important; }
     .op-strip { flex-wrap: wrap; }
     .route { flex-direction: column; gap: 10px; }
@@ -663,11 +686,20 @@
       display: flex; align-items: center; gap: 12px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
       background: var(--color-surface); border-top: 1px solid var(--color-divider); padding: 12px 16px 20px;
     }
-    .shell { grid-template-columns: 1fr; }
-    .side { position: static; height: auto; }
+    .mobile-bookbar + footer.site { padding-bottom: 100px; } /* or the fixed bar covers the footer's last lines */
+    /* the back office: the sidebar turns into a bar over the page — brand and language, then the links in a swipeable row */
+    .shell { grid-template-columns: minmax(0, 1fr); } /* not 1fr (= minmax(auto, 1fr)): the links' row would widen the column instead of scrolling */
+    .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 12px 16px 8px; }
+    .side-brand { padding: 0; margin-right: auto; }
+    .side-co, .side-tip { display: none; }
+    .side-lang { margin: 0; }
+    .side nav { order: 1; width: 100%; flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+    .side nav a, .side nav button { flex: none; white-space: nowrap; }
     .main-pad { padding: 16px; }
-    .two-col { grid-template-columns: 1fr !important; }
-    .table { display: block; overflow-x: auto; }
+    .bleed { margin: -16px -16px 0; }
+    .topbar-dark { padding: 10px 16px; gap: 10px; }
+    .tabs { padding: 0 16px; }
+    .two-col { grid-template-columns: minmax(0, 1fr) !important; }
     .thumbs { grid-template-columns: 1fr 1fr; }
   }
 
@@ -682,7 +714,7 @@
  */
 @layer base {
   [id] { scroll-margin-top: 84px; } /* anchors land below the sticky bar */
-  .show-m { display: none; }
+  @media (min-width: 901px) { .show-m { display: none !important; } } /* .hide-m's twin; on a phone the element keeps its own display */
   .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 10px; }
   .band { background: var(--color-surface); }
   .sec { padding: 76px 40px; }
@@ -844,7 +876,6 @@
     .hx-card { display: none; }
   }
   @media (max-width: 900px) {
-    .show-m { display: block; }
     .sec { padding: 52px 16px; }
     .hx-in { padding: 100px 16px 24px; }
     .hx-lead { font-size: 15.5px; }

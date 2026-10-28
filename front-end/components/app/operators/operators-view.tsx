@@ -11,7 +11,7 @@ export function OperatorsView({ operators }: { operators: Operator[] }) {
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ padding: "28px 40px 40px" }}>
+      <main className="wrap pad" style={{ paddingBlock: "28px 40px" }}>
         <h2>{t("nav.operators")}</h2>
         <div className="grid-3">
           {operators.map((operator) => (

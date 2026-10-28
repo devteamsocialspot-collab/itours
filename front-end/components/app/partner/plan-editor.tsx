@@ -91,9 +91,10 @@ const toEditor = (plan: Plan): EditorPlan => ({
   departures: plan.departures.map(({ id, startDate, seats }) => ({ id, startDate, seats })),
 });
 
-// module-level on purpose: a component declared inside PlanEditor would remount its inputs on every keystroke
+// module-level on purpose: a component declared inside PlanEditor would remount its inputs on every keystroke.
+// `span` is 1 / -1, not span 2: the grid drops to one column on a phone, and span 2 would add a second
 const Field = ({ label, children, span }: { label: string; children: ReactNode; span?: boolean }) => (
-  <div className="field" style={span ? { gridColumn: "span 2" } : undefined}>
+  <div className="field" style={span ? { gridColumn: "1 / -1" } : undefined}>
     <label>{label}</label>
     {children}
   </div>
@@ -171,7 +172,7 @@ export function PlanEditor({ plan: loaded, startTab }: { plan: Plan; startTab: s
       body.set("file", file);
       const token = readSessionToken();
       try {
-        const res = await fetch(`${uploadUrl}?prefix=plans`, {
+        const res = await fetch(uploadUrl, {
           method: "POST",
           headers: { "x-locale": getActiveLocale(), ...(token ? { authorization: `Bearer ${token}` } : {}) },
           body,
@@ -192,50 +193,52 @@ export function PlanEditor({ plan: loaded, startTab }: { plan: Plan; startTab: s
   const cons = p.claims.map((c, i) => ({ c, i })).filter(({ c }) => c.kind === "CON");
 
   return (
-    <div style={{ margin: "-22px -28px 0" }}>
-      <div className="topbar-dark" style={{ flexWrap: "wrap" }}>
-        <Link href="/partner/plans">← {t("nav.plans")}</Link>
-        <div className="heading" style={{ fontSize: 16, color: "var(--color-bg)" }}>
-          {p.titleEn || t("partner.untitled")}
-        </div>
-        <span className="tag" style={{ background: "rgba(247, 244, 239,.18)", color: "var(--color-bg)" }}>
-          {t(`partner.planStatus.${saved.status}`)}
-        </span>
-        <div className="row ml-auto" style={{ gap: 14, flexWrap: "wrap" }}>
-          <div className="row" style={{ gap: 9 }}>
-            <div style={{ width: 96, height: 6, borderRadius: 999, background: "rgba(247, 244, 239,.2)" }}>
-              <div style={{ width: `${progress}%`, height: "100%", borderRadius: 999, background: "var(--color-accent-400)" }} />
-            </div>
-            <span className="small" style={{ color: "rgba(247, 244, 239,.7)" }}>
-              {t("editor.complete", { n: progress })}
-            </span>
+    <>
+      <div className="bleed">
+        <div className="topbar-dark" style={{ flexWrap: "wrap" }}>
+          <Link href="/partner/plans">← {t("nav.plans")}</Link>
+          <div className="heading" style={{ fontSize: 16, color: "var(--color-bg)" }}>
+            {p.titleEn || t("partner.untitled")}
           </div>
-          {dirty && (
-            <span className="small" style={{ color: "var(--color-accent-300)" }}>
-              {t("editor.unsaved")}
-            </span>
-          )}
-          <a href={`/plans/${saved.slug}`} target="_blank" className="btn btn-secondary btn-sm">
-            {t("editor.preview")}
-          </a>
-          <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => run(false)}>
-            {t("editor.saveDraft")}
-          </button>
-          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => run(true)}>
-            {published ? t("editor.publishChanges") : t("editor.submit")}
-          </button>
+          <span className="tag" style={{ background: "rgba(247, 244, 239,.18)", color: "var(--color-bg)" }}>
+            {t(`partner.planStatus.${saved.status}`)}
+          </span>
+          <div className="row ml-auto" style={{ gap: 14, flexWrap: "wrap" }}>
+            <div className="row" style={{ gap: 9 }}>
+              <div style={{ width: 96, height: 6, borderRadius: 999, background: "rgba(247, 244, 239,.2)" }}>
+                <div style={{ width: `${progress}%`, height: "100%", borderRadius: 999, background: "var(--color-accent-400)" }} />
+              </div>
+              <span className="small" style={{ color: "rgba(247, 244, 239,.7)" }}>
+                {t("editor.complete", { n: progress })}
+              </span>
+            </div>
+            {dirty && (
+              <span className="small" style={{ color: "var(--color-accent-300)" }}>
+                {t("editor.unsaved")}
+              </span>
+            )}
+            <a href={`/plans/${saved.slug}`} target="_blank" className="btn btn-secondary btn-sm">
+              {t("editor.preview")}
+            </a>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => run(false)}>
+              {t("editor.saveDraft")}
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => run(true)}>
+              {published ? t("editor.publishChanges") : t("editor.submit")}
+            </button>
+          </div>
+        </div>
+
+        <div className="tabs" role="tablist">
+          {TABS.map((key) => (
+            <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "on" : ""} onClick={() => setTab(key)}>
+              {t(`editor.tab.${key}`)}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="tabs" role="tablist">
-        {TABS.map((key) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "on" : ""} onClick={() => setTab(key)}>
-            {t(`editor.tab.${key}`)}
-          </button>
-        ))}
-      </div>
-
-      <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 372px", gap: 28, padding: "24px 28px 34px", alignItems: "start" }}>
+      <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 372px", gap: 28, padding: "24px 0 34px", alignItems: "start" }}>
         <div style={{ minWidth: 0 }}>
           {saved.status === "NEEDS_FIXES" && saved.reviewNote && (
             <p className="error" style={{ marginTop: 0 }}>
@@ -519,40 +522,42 @@ export function PlanEditor({ plan: loaded, startTab }: { plan: Plan; startTab: s
                 </Field>
               </div>
               <h4 style={{ margin: "0 0 10px" }}>{t("editor.departures")}</h4>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t("editor.startDate")}</th>
-                    <th>{t("editor.seats")}</th>
-                    <th>{t("editor.sold")}</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.departures.map((d, i) => {
-                    const sold = d.id ? (soldById.get(d.id) ?? 0) : 0;
-                    return (
-                      <tr key={d.id ?? `n${i}`}>
-                        <td>
-                          <input className="input" type="date" value={d.startDate} onChange={(e) => setDeparture(i, { startDate: e.target.value })} />
-                        </td>
-                        <td>
-                          <input className="input" type="number" min={Math.max(1, sold)} style={{ width: 90 }} value={d.seats} onChange={(e) => setDeparture(i, { seats: +e.target.value })} />
-                        </td>
-                        <td>{sold}</td>
-                        <td>
-                          {sold === 0 && (
-                            <button type="button" className="x-btn" aria-label={t("common.remove")} onClick={() => set("departures", p.departures.filter((_, j) => j !== i))}>
-                              ×
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <div className="row" style={{ marginTop: 10 }}>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>{t("editor.startDate")}</th>
+                      <th>{t("editor.seats")}</th>
+                      <th>{t("editor.sold")}</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.departures.map((d, i) => {
+                      const sold = d.id ? (soldById.get(d.id) ?? 0) : 0;
+                      return (
+                        <tr key={d.id ?? `n${i}`}>
+                          <td>
+                            <input className="input" type="date" value={d.startDate} onChange={(e) => setDeparture(i, { startDate: e.target.value })} />
+                          </td>
+                          <td>
+                            <input className="input" type="number" min={Math.max(1, sold)} style={{ width: 90 }} value={d.seats} onChange={(e) => setDeparture(i, { seats: +e.target.value })} />
+                          </td>
+                          <td>{sold}</td>
+                          <td>
+                            {sold === 0 && (
+                              <button type="button" className="x-btn" aria-label={t("common.remove")} onClick={() => set("departures", p.departures.filter((_, j) => j !== i))}>
+                                ×
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="row" style={{ marginTop: 10, flexWrap: "wrap" }}>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => set("departures", [...p.departures, { startDate: "", seats: p.maxGroup }])}>
                   + {t("editor.addDeparture")}
                 </button>
@@ -710,6 +715,6 @@ export function PlanEditor({ plan: loaded, startTab }: { plan: Plan; startTab: s
           </div>
         </aside>
       </div>
-    </div>
+    </>
   );
 }

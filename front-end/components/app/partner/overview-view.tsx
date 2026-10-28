@@ -39,7 +39,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
             {day(new Date(), locale)} · {t("partner.needAttention", { n: needsAction })}
           </div>
         </div>
-        <div className="row ml-auto">
+        <div className="row ml-auto" style={{ flexWrap: "wrap" }}>
           <div className="seg seg-mini">
             {(["7", "30", "season"] as const).map((p) => (
               <button key={p} type="button" className={`seg-opt ${period === p ? "on" : ""}`} onClick={() => onPeriod(p)}>
@@ -65,7 +65,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
           <div className="grid-4 keep-m" style={{ marginBottom: 16 }}>
             <div className="stat">
               <div className="stat-label">{t("partner.confirmedBookings")}</div>
-              <div className="row" style={{ alignItems: "flex-end", gap: 8 }}>
+              <div className="row" style={{ alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
                 <div className="stat-value">{d.bookings}</div>
                 <span className={`tag ${d.bookingsDelta >= 0 ? "tag-accent-2" : "tag-accent"}`}>{delta(d.bookingsDelta)}</span>
               </div>
@@ -73,7 +73,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
             </div>
             <div className="stat">
               <div className="stat-label">{t("partner.revenue")}</div>
-              <div className="row" style={{ alignItems: "flex-end", gap: 8 }}>
+              <div className="row" style={{ alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
                 <div className="stat-value">{mntShort(d.revenueUsd)}</div>
                 {d.revenueDelta != null && <span className={`tag ${d.revenueDelta >= 0 ? "tag-accent-2" : "tag-accent"}`}>{delta(d.revenueDelta)}%</span>}
               </div>
@@ -83,7 +83,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
             </div>
             <div className="stat">
               <div className="stat-label">{t("plan.expectationScore")}</div>
-              <div className="row" style={{ alignItems: "flex-end", gap: 8 }}>
+              <div className="row" style={{ alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
                 <div className="stat-value">{d.score ?? "–"}</div>
                 {d.scoreDelta !== 0 && <span className={`tag ${d.scoreDelta > 0 ? "tag-accent-2" : "tag-accent"}`}>{delta(d.scoreDelta)}</span>}
               </div>
@@ -91,7 +91,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
             </div>
             <div className="stat">
               <div className="stat-label">{t("partner.replyMedian")}</div>
-              <div className="row" style={{ alignItems: "flex-end", gap: 8 }}>
+              <div className="row" style={{ alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
                 <div className="stat-value">{d.replyHours} h</div>
                 <span className={`tag ${d.fastReplies ? "tag-accent-2" : "tag-accent"}`}>{d.fastReplies ? t("partner.good") : t("partner.slow")}</span>
               </div>
@@ -162,30 +162,32 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
                   {t("partner.manage")}
                 </Link>
               </div>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t("partner.date")}</th>
-                    <th>{t("partner.plan")}</th>
-                    <th>{t("partner.seats")}</th>
-                    <th>{t("partner.status")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.nextDepartures.map((dep) => (
-                    <tr key={dep.id}>
-                      <td className="nowrap">{day(dep.startDate, locale, false)}</td>
-                      <td>{dep.planTitle.split(":")[0]}</td>
-                      <td>
-                        {dep.sold} / {dep.seats}
-                      </td>
-                      <td>
-                        <span className={`tag ${STATE_TAG[dep.state] ?? "tag-neutral"}`}>{t(`partner.state.${dep.state}`, { n: dep.missing })}</span>
-                      </td>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>{t("partner.date")}</th>
+                      <th>{t("partner.plan")}</th>
+                      <th>{t("partner.seats")}</th>
+                      <th>{t("partner.status")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {d.nextDepartures.map((dep) => (
+                      <tr key={dep.id}>
+                        <td className="nowrap">{day(dep.startDate, locale, false)}</td>
+                        <td>{dep.planTitle.split(":")[0]}</td>
+                        <td>
+                          {dep.sold} / {dep.seats}
+                        </td>
+                        <td>
+                          <span className={`tag ${STATE_TAG[dep.state] ?? "tag-neutral"}`}>{t(`partner.state.${dep.state}`, { n: dep.missing })}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
             <div className="panel">
               <div className="row-base" style={{ marginBottom: 10 }}>
@@ -196,32 +198,34 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
                   {t("partner.allPlans", { n: planCount })}
                 </Link>
               </div>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t("partner.plan")}</th>
-                    <th>{t("partner.views")}</th>
-                    <th>{t("partner.conversion")}</th>
-                    <th>{t("partner.score")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.planPerformance.map((plan) => (
-                    <tr key={plan.id}>
-                      <td>
-                        <Link href={`/partner/plans/${plan.id}`} className="plain">
-                          {plan.title.split(":")[0]}
-                        </Link>
-                      </td>
-                      <td>{plan.views.toLocaleString("en-US")}</td>
-                      <td>{plan.conversion.toFixed(1)}%</td>
-                      <td>
-                        <span className={`tag ${(plan.score ?? 0) >= 90 ? "tag-accent-2" : "tag-accent"}`}>{plan.score ?? "–"}</span>
-                      </td>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>{t("partner.plan")}</th>
+                      <th>{t("partner.views")}</th>
+                      <th>{t("partner.conversion")}</th>
+                      <th>{t("partner.score")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {d.planPerformance.map((plan) => (
+                      <tr key={plan.id}>
+                        <td>
+                          <Link href={`/partner/plans/${plan.id}`} className="plain">
+                            {plan.title.split(":")[0]}
+                          </Link>
+                        </td>
+                        <td>{plan.views.toLocaleString("en-US")}</td>
+                        <td>{plan.conversion.toFixed(1)}%</td>
+                        <td>
+                          <span className={`tag ${(plan.score ?? 0) >= 90 ? "tag-accent-2" : "tag-accent"}`}>{plan.score ?? "–"}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
           <p className="xs muted" style={{ marginTop: 14 }}>

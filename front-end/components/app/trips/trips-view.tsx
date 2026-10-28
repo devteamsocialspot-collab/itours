@@ -92,7 +92,7 @@ export function TripsView({ bookings, loading, error, refetch }: { bookings: Boo
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ maxWidth: 900, padding: "28px 30px 40px" }}>
+      <main className="wrap gutter" style={{ maxWidth: 900, paddingBlock: "28px 40px" }}>
         <h2>{t("trips.title")}</h2>
         {error && <p className="error">{error}</p>}
         {!loading && bookings.length === 0 && (
@@ -102,7 +102,7 @@ export function TripsView({ bookings, loading, error, refetch }: { bookings: Boo
         )}
         <div className="col" style={{ gap: 16 }}>
           {bookings.map((booking) => (
-            <article key={booking.id} className="panel" style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 18 }}>
+            <article key={booking.id} className="panel two-col" style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 18 }}>
               <Photo src={booking.plan.photos[0]} alt={booking.plan.region} style={{ borderRadius: 18, height: 100 }} />
               <div style={{ minWidth: 0 }}>
                 <div className="row" style={{ flexWrap: "wrap" }}>

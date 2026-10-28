@@ -46,7 +46,8 @@ export function ProfileForm({ operator }: { operator: Operator }) {
           await report(data?.updateMyOperator);
         }}
       >
-        <div className="field" style={{ gridColumn: "span 2" }}>
+        {/* 1 / -1, not span 2: on a phone the grid has one column, and span 2 would add a second */}
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
           <label>{t("profile.name")}</label>
           <input className="input" value={form.name} onChange={set("name")} required />
         </div>
@@ -66,15 +67,15 @@ export function ProfileForm({ operator }: { operator: Operator }) {
           <label>{t("profile.languages")}</label>
           <input className="input" value={form.languages} onChange={set("languages")} />
         </div>
-        <div className="field" style={{ gridColumn: "span 2" }}>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
           <label>{t("profile.about")}</label>
           <textarea className="input" style={{ borderRadius: 18, minHeight: 110 }} value={form.about} onChange={set("about")} />
         </div>
-        <div className="field" style={{ gridColumn: "span 2" }}>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
           <label>{t("profile.fleet")}</label>
           <textarea className="input" style={{ borderRadius: 18 }} value={form.fleet} onChange={set("fleet")} />
         </div>
-        <div className="field" style={{ gridColumn: "span 2" }}>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
           <label>{t("profile.cover")}</label>
           <input className="input" type="url" value={form.coverUrl} onChange={set("coverUrl")} placeholder="https://…" />
         </div>
