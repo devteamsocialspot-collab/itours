@@ -39,12 +39,44 @@ function DayRow({ d, t }: { d: PlanDay; t: T }) {
   );
 }
 
+/** The score by area, and how it is made. In the aside on a desktop, under the pros and cons on a phone. */
+function ScoreBreakdown({ plan, t, className }: { plan: Plan; t: T; className: string }) {
+  return (
+    <div className={`panel-sage ${className}`} style={{ borderRadius: 26 }}>
+      <div className="heading" style={{ fontSize: 15, marginBottom: 10 }}>
+        {t("plan.expectationScore")} {plan.score ?? "–"}
+      </div>
+      <div className="col" style={{ gap: 9, fontSize: 12 }}>
+        {plan.areas
+          .filter((a) => a.score !== null)
+          .map((a) => (
+            <div key={a.area}>
+              <div className="row" style={{ justifyContent: "space-between", marginBottom: 3 }}>
+                <span>{t(`plan.area.${a.area}`)}</span>
+                <span>{a.score}</span>
+              </div>
+              {/* the one score rule (scoreTone): under 80 is the warning tone */}
+              <Bar value={a.score!} warn={a.score! < 80} />
+            </div>
+          ))}
+        {plan.score === null && <div>{t("plan.noScore")}</div>}
+      </div>
+      <details className="small" style={{ marginTop: 12 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 700 }}>{t("plan.scoreHow")}</summary>
+        <p style={{ margin: "6px 0 0", lineHeight: 1.55 }}>{t("plan.scoreHowText")}</p>
+      </details>
+    </div>
+  );
+}
+
 /** The plan page (wireframe 1c): the honest summary, promises with how often they held, route, days, reviews. */
 export function PlanPageView({ plan, reviews, initialDep, initialPax }: { plan: Plan; reviews: Review[]; initialDep?: string; initialPax?: number }) {
   const t = useT();
   const { locale } = useLocale();
   const stats = plan.operator.stats;
   const next = nextDeparture(plan);
+  // the phone's book bar shows the date the search picked, as the booking card does
+  const barDep = plan.departures.find((d) => d.id === initialDep && (d.left ?? 0) > 0) ?? next;
   const pctOf = (n: number | null) => (n === null ? t("plan.notRatedYet") : t("plan.confirmedBy", { n }));
   // a gallery tile opens the photo viewer on itself, by click or Enter / Space
   const [viewing, setViewing] = useState<number | null>(null);
@@ -148,6 +180,10 @@ export function PlanPageView({ plan, reviews, initialDep, initialPax }: { plan: 
                 <Link href={`/operators/${plan.operator.slug}`} className="btn btn-secondary btn-sm">
                   {t("plan.operatorLink")}
                 </Link>
+                {/* the header's Save is hidden on a phone */}
+                <div className="show-m">
+                  <SaveButton planId={plan.id} />
+                </div>
               </div>
             </div>
 
@@ -209,13 +245,17 @@ export function PlanPageView({ plan, reviews, initialDep, initialPax }: { plan: 
                   {consOf(plan).map((c) => (
                     <div key={c.id}>
                       <div className="bold">{c.text}</div>
-                      <div className="sub">{c.detail || pctOf(c.score)}</div>
+                      <div className="sub">
+                        {c.detail ? `${c.detail} — ` : ""}
+                        {pctOf(c.score)}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-            <div className="row small muted" style={{ marginBottom: 30 }}>
+            <ScoreBreakdown plan={plan} t={t} className="show-m" />
+            <div className="row small muted" style={{ marginBottom: 30, marginTop: 12 }}>
               <ShieldCheck size={14} strokeWidth={2.75} />
               {t("plan.scoreExplain")}
             </div>
@@ -301,36 +341,18 @@ export function PlanPageView({ plan, reviews, initialDep, initialPax }: { plan: 
 
           <aside className="sticky">
             <BookingWidget plan={plan} initialDep={initialDep} initialPax={initialPax} />
-            <div className="panel-sage" style={{ borderRadius: 26 }}>
-              <div className="heading" style={{ fontSize: 15, marginBottom: 10 }}>
-                {t("plan.expectationScore")} {plan.score ?? "–"}
-              </div>
-              <div className="col" style={{ gap: 9, fontSize: 12 }}>
-                {plan.areas
-                  .filter((a) => a.score !== null)
-                  .map((a) => (
-                    <div key={a.area}>
-                      <div className="row" style={{ justifyContent: "space-between", marginBottom: 3 }}>
-                        <span>{t(`plan.area.${a.area}`)}</span>
-                        <span>{a.score}</span>
-                      </div>
-                      <Bar value={a.score!} warn={a.score! < 90} />
-                    </div>
-                  ))}
-                {plan.score === null && <div>{t("plan.noScore")}</div>}
-              </div>
-            </div>
+            <ScoreBreakdown plan={plan} t={t} className="hide-m" />
           </aside>
         </div>
       </main>
-      {next && (
+      {barDep && (
         <div className="mobile-bookbar">
           <div>
             <div className="heading" style={{ fontSize: 19, lineHeight: 1 }}>
               ${plan.priceUsd.toLocaleString("en-US")}
             </div>
             <div className="xs muted">
-              {t(seatsLeftKey(next.left ?? 0), { n: next.left ?? 0 })}, {day(next.startDate, locale, false)}
+              {t(seatsLeftKey(barDep.left ?? 0), { n: barDep.left ?? 0 })}, {day(barDep.startDate, locale, false)}
             </div>
           </div>
           <a href="#book" className="btn btn-cta ml-auto" style={{ fontSize: 14, padding: "10px 20px" }}>

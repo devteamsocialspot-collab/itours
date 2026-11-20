@@ -20,6 +20,8 @@ import { PLAN_STATUS } from '../../types/plan/plan.type';
 import { ROLES } from '../../types/user/role.type';
 
 import { DAY_MS, parseLogin, pickFields, slugify, todayUb } from '../../utils';
+import { Locale } from '../../utils/i18n';
+import BookingController from '../booking/booking.controller';
 import PlanController from '../plan/plan.controller';
 import UserController from '../user/user.controller';
 
@@ -75,6 +77,8 @@ export default class OperatorController {
       ReviewModel.findAll({ attributes: ['stars'], include: [plan()] }),
       BookingModel.findAll({
         attributes: ['status', 'cancelledBy'],
+        // a lapsed transfer hold was never a sale, nor anyone's cancellation: out of both counts
+        where: { [Op.or]: [BookingController.live(), { status: BOOKING_STATUS.CANCELLED }] },
         include: [plan()]
       }),
       PlanModel.count({ where: { operatorId, status: PLAN_STATUS.PUBLISHED } })
@@ -177,7 +181,9 @@ export default class OperatorController {
    * The partner overview for the last `days` against the `days` before them: bookings, revenue, the
    * score and where it ranks, seats per week, the promise to fix first, next departures, plan funnel.
    */
-  static async getDashboard(operatorId: string, days: number) {
+  static async getDashboard(operatorId: string, days: number, lang: Locale = 'en') {
+    // the front-end's pick(): the Mongolian title when Mongolian is asked for and written
+    const title = (plan: PlanModel) => (lang === 'mn' && plan.titleMn.trim() ? plan.titleMn : plan.titleEn);
     const now = Date.now();
     const period = Math.min(Math.max(days, 1), 366) * DAY_MS;
     const since = new Date(Math.min(now - 2 * period, now - 12 * WEEK_MS));
@@ -185,7 +191,7 @@ export default class OperatorController {
       this.findIdCheck(operatorId),
       PlanController.getOperatorPlans(operatorId),
       BookingModel.findAll({
-        where: { status: { [Op.ne]: BOOKING_STATUS.CANCELLED }, createdAt: { [Op.gte]: since } },
+        where: { ...BookingController.live(), createdAt: { [Op.gte]: since } },
         attributes: ['pax', 'totalUsd', 'createdAt'],
         include: [{ model: PlanModel, as: 'plan', attributes: [], where: { operatorId } }]
       }),
@@ -242,7 +248,7 @@ export default class OperatorController {
 
     const next = upcoming.sort((a, b) => a.startDate.localeCompare(b.startDate)).slice(0, 5);
     const nextBookings = await BookingModel.findAll({
-      where: { departureId: next.map((d) => d.id), status: { [Op.ne]: BOOKING_STATUS.CANCELLED } },
+      where: { departureId: next.map((d) => d.id), ...BookingController.live() },
       attributes: ['departureId', 'guide', 'status']
     });
 
@@ -267,7 +273,7 @@ export default class OperatorController {
         ? {
             ...gap.gap!,
             planId: gap.plan.id,
-            planTitle: gap.plan.titleEn,
+            planTitle: title(gap.plan),
             claimText: (gap.plan.claims ?? []).find((c) => c.id === gap.gap!.claimId)?.text ?? ''
           }
         : null,
@@ -285,7 +291,7 @@ export default class OperatorController {
         return {
           id: departure.id,
           startDate: departure.startDate,
-          planTitle: departure.plan.titleEn,
+          planTitle: title(departure.plan),
           seats: departure.seats,
           sold,
           missing: Math.max(departure.plan.minGroup - sold, 0),
@@ -298,7 +304,7 @@ export default class OperatorController {
           const sold = sum((plan.departures ?? []).map((d) => (d.bookings ?? []).length));
           return {
             id: plan.id,
-            title: plan.titleEn,
+            title: title(plan),
             views: plan.views,
             conversion: plan.views ? Math.round((sold / plan.views) * 1000) / 10 : 0,
             score: PlanController.getScore(plan)
@@ -315,7 +321,7 @@ export default class OperatorController {
       PlanModel.count({ where: { status: PLAN_STATUS.PENDING } }),
       BookingModel.findOne({
         attributes: [[fn('COALESCE', fn('SUM', col('totalUsd')), 0), 'total']],
-        where: { status: { [Op.ne]: BOOKING_STATUS.CANCELLED }, createdAt: { [Op.gte]: yearStart } },
+        where: { ...BookingController.live(), createdAt: { [Op.gte]: yearStart } },
         raw: true
       }) as Promise<{ total: string } | null>,
       BookingModel.count({ where: { createdAt: { [Op.gte]: new Date(Date.now() - 30 * DAY_MS) } } })

@@ -47,6 +47,7 @@ Demo logins use `SEED_DEMO_PASSWORD` (default `demo1234`); sign in with a phone 
 | `admin@itours.mn` | `MANAGER` — review queue, agencies, staff |
 
 To start over: `docker compose --env-file .env.local down -v`, then up again.
+The demo's bank-transfer holds are seeded 1–20 hours old and lapse 24 hours after booking, so their countdowns run from seed time: reseed shortly before a demo.
 
 ## The shape of the product
 

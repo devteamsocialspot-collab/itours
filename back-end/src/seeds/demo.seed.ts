@@ -42,6 +42,14 @@ const pickOne = <T>(items: readonly T[]) =>
 const D = (date: string) => new Date(`${date}T00:00:00Z`);
 const NOW = new Date();
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86400000);
+/**
+ * When a next-season booking was made, from one draw: over the last 12 weeks, but a transfer hold
+ * 1–20 hours ago, inside its 24-hour hold, so the demo shows live countdowns (relative to seed time).
+ */
+const since = (r: number, status: BOOKING_STATUS) =>
+  status === BOOKING_STATUS.PENDING_PAYMENT
+    ? new Date(NOW.getTime() - (1 + r * 19) * 3600000)
+    : daysAgo(r * 84);
 
 const C = 'https://upload.wikimedia.org/wikipedia/commons/thumb';
 const img = {
@@ -1018,7 +1026,7 @@ export const seedDemo = async () => {
                   'Celebrating an anniversary!'
                 ])
               : '',
-          createdAt: daysAgo(rand() * 84)
+          createdAt: since(rand(), status)
         });
       }
     }

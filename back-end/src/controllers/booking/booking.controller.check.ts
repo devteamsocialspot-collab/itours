@@ -1,8 +1,9 @@
 /**
  * The one check for selling seats, against the dev database:
  *   npx ts-node src/controllers/booking/booking.controller.check.ts
- * Makes a throwaway agency with a 3-seat departure, lets six travellers race for it, and deletes
- * everything it made (bookings first: they RESTRICT; the operator cascades to its plan).
+ * Makes a throwaway agency with a 3-seat departure, lets six travellers race for it, checks that a
+ * transfer hold lapses after 24 hours, and deletes everything it made (bookings first: they
+ * RESTRICT; the operator cascades to its plan).
  */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -17,6 +18,7 @@ import { PAY_METHOD, ROOM } from '../../types/booking/booking.type';
 import { PLAN_STATUS } from '../../types/plan/plan.type';
 import { ROLES } from '../../types/user/role.type';
 import { addDays, todayUb } from '../../utils';
+import OperatorController from '../operator/operator.controller';
 import BookingController from './booking.controller';
 
 const main = async () => {
@@ -100,6 +102,46 @@ const main = async () => {
     assert.equal(BookingController.freeCancelUntil(late), addDays(departure.startDate, -21));
     assert.equal(BookingController.stage(late), 'PAID');
     assert.equal(BookingController.canReview(late), false);
+    assert.equal(BookingController.payBy(late), null);
+
+    // BR-04: a transfer hold keeps its seat for 24 hours, then lapses without anything rewriting it
+    const single = await DepartureModel.create({
+      planId: plan.id,
+      startDate: addDays(todayUb(), 61),
+      seats: 1
+    });
+    const createdAt = new Date(Date.now() - 25 * 3600 * 1000);
+    const stale = await BookingModel.create({
+      code: `ITR-CHK${String(stamp).slice(-3)}`,
+      userId: travellers[0].id,
+      planId: plan.id,
+      departureId: single.id,
+      pax: 1,
+      room: ROOM.TWIN,
+      totalUsd: 1000,
+      method: PAY_METHOD.BANK,
+      status: 'PENDING_PAYMENT',
+      acceptedTradeoffs: true,
+      createdAt
+    });
+    // the lapsed hold frees its seat for a new buyer, whose own fresh hold then keeps it
+    const fresh = await book(travellers[1].id, 1, { departureId: single.id, method: PAY_METHOD.BANK });
+    assert.equal(fresh.status, 'PENDING_PAYMENT');
+    assert.equal(BookingController.stage(fresh), 'PENDING_PAYMENT');
+    assert.equal(
+      BookingController.payBy(fresh),
+      new Date(fresh.createdAt.getTime() + 24 * 3600 * 1000).toISOString()
+    );
+    await assert.rejects(book(travellers[2].id, 1, { departureId: single.id }), /notEnoughSeats/);
+    // the lapsed one: EXPIRED, not cancellable, its deadline kept, and the transfer can't be marked
+    const lapsed = await BookingController.findIdCheck(stale.id);
+    assert.equal(BookingController.stage(lapsed), 'EXPIRED');
+    assert.equal(BookingController.canCancel(lapsed), false);
+    assert.equal(BookingController.payBy(lapsed), new Date(createdAt.getTime() + 24 * 3600 * 1000).toISOString());
+    await assert.rejects(BookingController.markPaid(stale.id, operator.id), /holdExpired/);
+    assert.equal((await BookingController.markPaid(fresh.id, operator.id)).status, 'PAID');
+    // and it is no sale: 3 paid on the first departure + the fresh one; the cancelled seat isn't one either
+    assert.equal((await OperatorController.getStats(operator.id)).tripsSold, 4);
   } finally {
     await BookingModel.destroy({ where: { userId: travellers.map((user) => user.id) } });
     await UserModel.destroy({ where: { id: travellers.map((user) => user.id) } });

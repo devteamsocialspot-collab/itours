@@ -139,7 +139,8 @@ export type PlanFacet = { slug: string; name: string; count: number };
 export type PayMethod = "CARD" | "QPAY" | "BANK";
 export type Room = "TWIN" | "SINGLE";
 export type BookingStatus = "PENDING_PAYMENT" | "PAID" | "CONFIRMED" | "CANCELLED";
-export type BookingStage = BookingStatus | "TRAVELLING" | "COMPLETED";
+/** EXPIRED = a bank-transfer hold past its 24 hours (derived on the server, never stored). */
+export type BookingStage = BookingStatus | "TRAVELLING" | "COMPLETED" | "EXPIRED";
 export type OrderTab = "ACTION" | "CONFIRMED" | "TRAVELLING" | "COMPLETED" | "CANCELLED";
 
 export type Booking = {
@@ -156,6 +157,8 @@ export type Booking = {
   cancelledBy: Role | null;
   createdAt: string;
   stage: BookingStage;
+  /** ISO instant the transfer must arrive by; null unless PENDING_PAYMENT (kept once expired). */
+  payBy: string | null;
   lastDay: string;
   freeCancelUntil: string;
   payoutUsd: number;

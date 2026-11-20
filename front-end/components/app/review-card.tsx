@@ -35,7 +35,13 @@ export function ReviewCard({ review, showOperator }: { review: Review & Partial<
         </div>
       )}
       <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, color: "var(--ink-80)" }}>
-        <span style={{ color: "var(--color-cta)" }}>{"★".repeat(review.stars)}</span> {review.text}
+        <span role="img" aria-label={t("trips.starsN", { n: review.stars })} style={{ color: "var(--color-cta-800)" }}>
+          <span aria-hidden>{review.stars} </span>
+          <span aria-hidden style={{ color: "var(--color-cta)" }}>
+            {"★".repeat(review.stars)}
+          </span>
+        </span>{" "}
+        {review.text}
       </p>
     </div>
   );

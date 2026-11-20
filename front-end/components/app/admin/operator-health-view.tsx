@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@apollo/client";
-import { Plus } from "lucide-react";
+import { CircleAlert, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { OperatorFormDialog } from "@/components/app/admin/operator-form-dialog";
@@ -67,9 +67,10 @@ export function OperatorHealthView({ operators, loading, refetch }: { operators:
                     <span className={`tag ${(operator.stats?.score ?? 0) >= 80 ? "tag-accent-2" : "tag-accent"}`}>{operator.stats?.score ?? "–"}</span>
                   </td>
                   <td>{(operator.stats?.cancelRate ?? 0).toFixed(1)}%</td>
-                  <td>{operator.replyHours} h</td>
+                  <td>{t("common.hours", { n: operator.replyHours })}</td>
                   <td>
-                    <span className="small" style={{ color: healthy ? "var(--ink-55)" : "var(--color-accent-800)" }}>
+                    <span className="small" style={{ color: healthy ? "var(--ink-55)" : "var(--color-cta-800)" }}>
+                      {!healthy && <CircleAlert size={13} strokeWidth={2.75} aria-hidden style={{ verticalAlign: -2, marginRight: 4 }} />}
                       {t(`admin.health.${operator.health ?? "HEALTHY"}`)}
                     </span>
                   </td>

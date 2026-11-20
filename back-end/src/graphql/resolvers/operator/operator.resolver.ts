@@ -55,7 +55,7 @@ export default {
         const operatorId = await UserController.operatorIdOf(context.userId);
         return {
           ...ok(context.lang),
-          dashboard: await OperatorController.getDashboard(operatorId, doc.days ?? 30)
+          dashboard: await OperatorController.getDashboard(operatorId, doc.days ?? 30, context.lang)
         };
       } catch (error) {
         return { ...fail(error, context.lang), dashboard: null };

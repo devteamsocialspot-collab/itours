@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/** The text wordmark: itours.mn with the dot in copper. `suffix` names the back office ("partner", "ops"). */
-export function Brand({ large, suffix, className }: { large?: boolean; suffix?: string; className?: string }) {
+/** The logo (public/logo.png) on a white badge: its black lettering needs a light ground on the blue bar and dark footer. */
+export function Brand({ large, className }: { large?: boolean; className?: string }) {
   return (
     <Link href="/" className={cn("brand", large && "brand-lg", className)}>
-      itours<span>.</span>
-      {suffix ?? "mn"}
+      {/* eslint-disable-next-line @next/next/no-img-element -- a 17 KB local PNG at its own size, nothing for next/image to do */}
+      <img src="/logo.png" alt="itours.mn" width={320} height={68} />
     </Link>
   );
 }

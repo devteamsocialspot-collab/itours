@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ReviewCard } from "@/components/app/review-card";
 import { useLocale, useT } from "@/lib/i18n";
 import type { DashboardReview, PartnerDashboard, User } from "@/lib/types";
-import { day, mntShort, usd } from "@/lib/utils";
+import { day, mntShort, scoreTag, usd } from "@/lib/utils";
 
 export type Period = "7" | "30" | "season";
 
@@ -38,7 +38,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
         <div>
           <h2 style={{ margin: "0 0 2px" }}>{t("partner.greeting", { name: (user?.name ?? "").split(" ")[0] })}</h2>
           <div style={{ fontSize: 13, color: "var(--ink-60)" }}>
-            {day(new Date(), locale)} · {t("partner.needAttention", { n: needsAction })}
+            {day(new Date(), locale)} · <Link href="/partner/orders">{t("partner.needAttention", { n: needsAction })}</Link>
           </div>
         </div>
         <div className="row ml-auto" style={{ flexWrap: "wrap" }}>
@@ -94,7 +94,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
             <div className="stat">
               <div className="stat-label">{t("partner.replyMedian")}</div>
               <div className="row" style={{ alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                <div className="stat-value">{d.replyHours} h</div>
+                <div className="stat-value">{t("common.hours", { n: d.replyHours })}</div>
                 <span className={`tag ${d.fastReplies ? "tag-accent-2" : "tag-accent"}`}>{d.fastReplies ? t("partner.good") : t("partner.slow")}</span>
               </div>
               <div className="stat-sub">{t("partner.badgeRule")}</div>
@@ -111,7 +111,12 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
                   {t("partner.last12")}
                 </span>
               </div>
-              <div className="chart">
+              {/* the bars' text alternative: every week's date and seats */}
+              <div
+                className="chart"
+                role="img"
+                aria-label={`${t("partner.seatsPerWeek")}: ${d.weeks.map((week) => `${day(week.start, locale, false)} ${week.seats}`).join(", ")}`}
+              >
                 {d.weeks.map((week) => (
                   <div key={week.start} style={{ height: `${(week.seats / maxWeek) * 100}%`, background: tone(week.seats / maxWeek) }} title={`${day(week.start, locale)}: ${week.seats}`}>
                     <span>{week.seats || ""}</span>
@@ -221,7 +226,7 @@ export function OverviewView({ user, dashboard: d, loading, error, needsAction, 
                         <td>{plan.views.toLocaleString("en-US")}</td>
                         <td>{plan.conversion.toFixed(1)}%</td>
                         <td>
-                          <span className={`tag ${(plan.score ?? 0) >= 90 ? "tag-accent-2" : "tag-accent"}`}>{plan.score ?? "–"}</span>
+                          <span className={`tag ${scoreTag(plan.score)}`}>{plan.score ?? "–"}</span>
                         </td>
                       </tr>
                     ))}

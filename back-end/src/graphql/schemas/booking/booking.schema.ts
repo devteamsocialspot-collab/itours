@@ -19,8 +19,10 @@ export default `#graphql
     departure: Departure
     "Who booked; shown to the agency."
     traveller: User
-    "The stored status, plus TRAVELLING / COMPLETED from the dates."
+    "The stored status, plus TRAVELLING / COMPLETED from the dates, EXPIRED for a lapsed transfer hold."
     stage: BOOKING_STAGE
+    "ISO instant a bank transfer must arrive by (createdAt + HOLD_HOURS); null unless PENDING_PAYMENT."
+    payBy: String
     "YYYY-MM-DD"
     lastDay: String
     freeCancelUntil: String

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { AccountMenu } from "@/components/app/account-menu";
 import { Brand } from "@/components/app/brand";
 import { LanguageToggle } from "@/components/app/language-toggle";
+import { useSavedIds } from "@/components/app/save-button";
 import { useT } from "@/lib/i18n";
 
 /** The traveller pages' links, the current section marked; on a phone they fold into the menu button. */
@@ -33,6 +34,8 @@ function NavLinks() {
 /** A <details> menu: no state, and it closes once a link is picked. */
 function MobileMenu() {
   const t = useT();
+  // the bar's Saved and My trips links are hide-m: a traveller finds them here
+  const { traveller } = useSavedIds();
   return (
     <details className="menu show-m">
       <summary className="btn btn-icon" aria-label={t("nav.menu")}>
@@ -40,6 +43,12 @@ function MobileMenu() {
       </summary>
       <nav className="menu-pop" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>
         <NavLinks />
+        {traveller && (
+          <>
+            <Link href="/compare">{t("nav.saved")}</Link>
+            <Link href="/trips">{t("nav.myTrips")}</Link>
+          </>
+        )}
       </nav>
     </details>
   );

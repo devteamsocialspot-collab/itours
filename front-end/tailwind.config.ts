@@ -40,8 +40,8 @@ const config: Config = {
         sage: { DEFAULT: "#2d5a27", 50: "#eaeee9", light: "#abbda9", dark: "#1c3818" },
       },
       fontFamily: {
-        sans: ["var(--font-figtree)", "var(--font-cyr-body)", "ui-sans-serif", "system-ui", "sans-serif"],
-        display: ["var(--font-caprasimo)", "var(--font-cyr-heading)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-fira)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-fira)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       borderRadius: { card: "1.5rem", field: "0.75rem" },
       boxShadow: { card: "0 2px 3px rgba(0, 0, 0, 0.07)" },

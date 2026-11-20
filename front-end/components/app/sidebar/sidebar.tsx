@@ -3,6 +3,7 @@
 import { useApolloClient, useQuery } from "@apollo/client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Brand } from "@/components/app/brand";
 import { LanguageToggle } from "@/components/app/language-toggle";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { useT } from "@/lib/i18n";
@@ -39,10 +40,10 @@ export function Sidebar({ area }: { area: "partner" | "admin" }) {
 
   return (
     <aside className="side no-print">
-      <Link href="/" className="side-brand">
-        itours<span>.</span>
-        {t(partner ? "partner.brand" : "admin.brand")}
-      </Link>
+      <div className="side-brand">
+        <Brand />
+        <span>{t(partner ? "partner.brand" : "admin.brand")}</span>
+      </div>
       {partner && operator && (
         <div className="side-co">
           <div className="avatar" style={{ width: 28, height: 28, background: operator.color, fontSize: 10 }}>
@@ -52,7 +53,7 @@ export function Sidebar({ area }: { area: "partner" | "admin" }) {
             <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-bg)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {operator.name}
             </div>
-            <div style={{ fontSize: 10.5, color: "rgba(247, 244, 239,.5)" }}>
+            <div style={{ fontSize: 10.5, color: "rgba(247, 244, 239,.7)" }}>
               {operator.isVerified ? t("partner.verified") : t("partner.awaiting")} · {t("partner.score")} {data?.myOperator?.operator?.stats?.score ?? "–"}
             </div>
           </div>

@@ -140,6 +140,7 @@ export default {
   },
   Booking: {
     stage: (booking: Trip) => BookingController.stage(booking),
+    payBy: (booking: BookingModel) => BookingController.payBy(booking),
     lastDay: (booking: Trip) => BookingController.lastDay(booking),
     freeCancelUntil: (booking: Trip) => BookingController.freeCancelUntil(booking),
     payoutUsd: (booking: Trip) => BookingController.payout(booking).usd,

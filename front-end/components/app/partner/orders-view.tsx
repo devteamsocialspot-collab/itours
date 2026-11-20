@@ -3,16 +3,18 @@
 import { useMutation } from "@apollo/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ordersCsvUrl } from "@/lib/api";
 import { readSessionToken } from "@/lib/auth";
 import { CANCEL_ORDER_MUTATION, CONFIRM_ORDER_MUTATION, MARK_PAID_MUTATION, ORDERS_QUERY } from "@/lib/booking/queries";
 import { PARTNER_COUNTS_QUERY } from "@/lib/operator/queries";
+import { useNow, useRefetchWhenPast } from "@/lib/hooks/use-now";
 import { useReport } from "@/lib/hooks/use-report";
 import { getActiveLocale, useLocale, useT } from "@/lib/i18n";
 import type { Booking, OrderTab } from "@/lib/types";
-import { day, dayRange, initials, mnt, usd } from "@/lib/utils";
+import { dateTime, day, dayRange, initials, leftText, mnt, pick, usd } from "@/lib/utils";
 
 const TABS: OrderTab[] = ["ACTION", "CONFIRMED", "TRAVELLING", "COMPLETED", "CANCELLED"];
 
@@ -81,21 +83,57 @@ function Pager({ page, count, onPage }: Pick<Props, "page" | "count" | "onPage">
   );
 }
 
+/** An action that moves money or seats: it opens a dialog saying what will happen, and runs on confirm. */
+function ConfirmDialog(props: { label: string; className: string; title: string; text: string; confirm: string; dismiss: string; busy: boolean; onConfirm: () => Promise<unknown> }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger className={props.className} disabled={props.busy}>
+        {props.label}
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{props.title}</DialogTitle>
+          <DialogDescription style={{ fontSize: 13.5 }}>{props.text}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>
+            {props.dismiss}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={props.busy}
+            onClick={async () => {
+              await props.onConfirm();
+              setOpen(false);
+            }}
+          >
+            {props.confirm}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** The orders inbox (wireframe 2d): tabs by what needs doing, a sortable, paged table, and the selected order's actions. */
 export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, onSort, page, count, onPage, loading, error, refetch }: Props) {
   const t = useT();
   const { locale } = useLocale();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sel = orders.find((o) => o.id === selectedId) ?? orders[0];
-  const detail = useRef<HTMLDivElement>(null);
+  const detail = useRef<HTMLElement>(null);
   const [guide, setGuide] = useState("");
   const [driver, setDriver] = useState("");
-  const [confirmCancel, setConfirmCancel] = useState(false);
   useEffect(() => {
     setGuide(sel?.guide ?? "");
     setDriver(sel?.driver ?? "");
-    setConfirmCancel(false);
   }, [sel?.id, sel?.guide, sel?.driver]);
+  // a hold on screen passing its deadline: refresh once, so the row moves to Cancelled
+  const now = useNow();
+  useRefetchWhenPast(orders.filter((o) => o.stage === "PENDING_PAYMENT").map((o) => o.payBy), now, refetch);
+  const phone = () => matchMedia("(max-width: 900px)").matches;
 
   const options = { refetchQueries: [ORDERS_QUERY, PARTNER_COUNTS_QUERY] };
   const [confirm, { loading: confirming }] = useMutation(CONFIRM_ORDER_MUTATION, options);
@@ -108,11 +146,13 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
     const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
     return m < 60 ? t("orders.minAgo", { n: m }) : m < 1440 ? t("orders.hAgo", { n: Math.round(m / 60) }) : t("orders.dAgo", { n: Math.round(m / 1440) });
   };
-  const statusTag = (o: Booking) =>
+  const statusTag = (o: Booking): ReactNode =>
     o.stage === "PAID" ? (
       <span className="tag tag-solid">{t("orders.paidAssign")}</span>
     ) : o.stage === "PENDING_PAYMENT" ? (
-      <span className="tag tag-accent">{t("orders.transferPending")}</span>
+      <span className="tag tag-accent">{o.payBy ? t("orders.pendingLeft", { left: leftText(t, o.payBy, now) }) : t("orders.transferPending")}</span>
+    ) : o.stage === "EXPIRED" ? (
+      <span className="tag tag-neutral">{t("orders.expired")}</span>
     ) : o.stage === "CANCELLED" ? (
       <span className="tag tag-neutral">
         {t("orders.cancelledBy")}
@@ -146,6 +186,7 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
             onChange={(e) => onSearch(e.target.value)}
             className="input"
             placeholder={t("orders.search")}
+            aria-label={t("orders.search")}
             style={{ width: 240, minWidth: 0, background: "rgba(247, 244, 239,.1)", borderColor: "rgba(247, 244, 239,.25)", color: "var(--color-bg)" }}
           />
           <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv}>
@@ -163,6 +204,7 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                   key={key}
                   type="button"
                   className={`tag ${key === tab ? "tag-solid" : "tag-neutral"}`}
+                  aria-pressed={key === tab}
                   style={{ padding: "6px 14px", fontSize: 13, border: 0, cursor: "pointer" }}
                   onClick={() => {
                     onTab(key);
@@ -199,8 +241,8 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                 <tr>
                   <th>{t("orders.traveller")}</th>
                   <th>{t("orders.planDeparture")}</th>
-                  <th>{t("orders.pax")}</th>
-                  <th>{t("orders.value")}</th>
+                  <th className="hide-m">{t("orders.pax")}</th>
+                  <th className="hide-m">{t("orders.value")}</th>
                   <th>{t("orders.status")}</th>
                 </tr>
               </thead>
@@ -213,28 +255,39 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                   </tr>
                 )}
                 {orders.map((o) => (
+                  // the row stays clickable for the mouse; the name is the button keyboards and screen readers use
                   <tr
                     key={o.id}
                     className={o.id === sel?.id ? "sel" : ""}
                     onClick={() => {
                       setSelectedId(o.id);
                       // stacked on a phone (the CSS breakpoint), the order's panel is under the list: bring it up
-                      if (matchMedia("(max-width: 900px)").matches) detail.current?.scrollIntoView({ behavior: "smooth" });
+                      if (!phone()) return;
+                      detail.current?.scrollIntoView({ behavior: "smooth" });
+                      detail.current?.focus({ preventScroll: true });
                     }}
                     style={{ cursor: "pointer" }}
                   >
                     <td>
-                      <div className="bold">{o.traveller?.name}</div>
+                      <button type="button" id={`order-row-${o.id}`} className="rowlink" aria-controls="order-detail" aria-current={o.id === sel?.id ? "true" : undefined}>
+                        {o.traveller?.name}
+                      </button>
                       <div className="xs muted">
                         {o.code} · {o.traveller?.country || "—"} · {ago(o.createdAt)}
                       </div>
                     </td>
                     <td>
-                      <div>{o.plan.titleEn.split(":")[0]}</div>
+                      <div>{pick(locale, o.plan.titleEn, o.plan.titleMn).split(":")[0]}</div>
                       <div className="xs muted">{day(o.departure.startDate, locale)}</div>
+                      <div className="xs muted show-m">
+                        {o.pax} · {usd(o.totalUsd)}
+                      </div>
                     </td>
-                    <td>{o.pax}</td>
-                    <td className="nowrap">{o.method === "CARD" ? usd(o.totalUsd) : mnt(o.totalUsd)}</td>
+                    <td className="hide-m">{o.pax}</td>
+                    <td className="nowrap hide-m">
+                      {usd(o.totalUsd)}
+                      <div className="xs muted">{mnt(o.totalUsd)}</div>
+                    </td>
                     <td>{statusTag(o)}</td>
                   </tr>
                 ))}
@@ -252,16 +305,28 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
         </div>
 
         {sel && (
-          <div ref={detail}>
+          <section ref={detail} id="order-detail" aria-labelledby="order-detail-name" tabIndex={-1}>
             <div className="panel" style={{ borderRadius: 28, padding: 20, boxShadow: "var(--shadow-md)" }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs show-m"
+                style={{ marginBottom: 8 }}
+                onClick={() => {
+                  const row = document.getElementById(`order-row-${sel.id}`);
+                  row?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  row?.focus({ preventScroll: true });
+                }}
+              >
+                ← {t("orders.backToList")}
+              </button>
               <div className="row" style={{ alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
                 <div className="avatar" style={{ width: 42, height: 42, background: "var(--color-neutral-400)" }}>
                   {initials(sel.traveller?.name ?? "")}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div className="heading" style={{ fontSize: 17 }}>
+                  <h2 id="order-detail-name" className="heading" style={{ fontSize: 17, margin: 0 }}>
                     {sel.traveller?.name}
-                  </div>
+                  </h2>
                   <div className="small" style={{ color: "var(--ink-60)" }}>
                     {[sel.code, ago(sel.createdAt), sel.traveller?.email || sel.traveller?.phone].filter(Boolean).join(" · ")}
                   </div>
@@ -271,7 +336,7 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
               <div className="sum-lines" style={{ lineHeight: 2, paddingBottom: 14, borderBottom: "1px solid var(--color-divider)" }}>
                 <div>
                   <span className="muted">{t("orders.plan")}</span>
-                  <span className="semi right">{sel.plan.titleEn.split(":")[0]}</span>
+                  <span className="semi right">{pick(locale, sel.plan.titleEn, sel.plan.titleMn).split(":")[0]}</span>
                 </div>
                 <div>
                   <span className="muted">{t("orders.departure")}</span>
@@ -286,9 +351,17 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                 <div>
                   <span className="muted">{sel.status === "PENDING_PAYMENT" ? t("orders.due") : t("orders.paid")}</span>
                   <span className="semi">
-                    {usd(sel.totalUsd)} · {sel.method.toLowerCase()}
+                    {usd(sel.totalUsd)} · {t(`orders.method.${sel.method}`)}
                   </span>
                 </div>
+                {sel.stage === "PENDING_PAYMENT" && sel.payBy && (
+                  <div>
+                    <span className="muted">{t("orders.payBy")}</span>
+                    <span className="semi right" style={{ color: "var(--color-cta-800)" }}>
+                      {dateTime(sel.payBy, locale)} · {leftText(t, sel.payBy, now)}
+                    </span>
+                  </div>
+                )}
                 <div>
                   <span className="muted">{t("orders.payout")}</span>
                   <span className="semi">
@@ -303,19 +376,26 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                 </div>
               )}
 
-              {sel.status === "PENDING_PAYMENT" && (
+              {sel.stage === "EXPIRED" && sel.payBy && (
+                <p className="small muted" style={{ margin: "14px 0 0" }}>
+                  {t("orders.expiredNote", { time: dateTime(sel.payBy, locale) })}
+                </p>
+              )}
+              {sel.stage === "PENDING_PAYMENT" && (
                 <div style={{ paddingTop: 14 }}>
-                  <button
-                    type="button"
+                  <ConfirmDialog
+                    label={t("orders.transferReceived")}
                     className="btn btn-primary btn-block"
-                    disabled={busy}
-                    onClick={async () => {
+                    title={t("orders.paidTitle")}
+                    text={t("orders.paidText", { p: mnt(sel.totalUsd), code: sel.code })}
+                    confirm={t("orders.transferReceived")}
+                    dismiss={t("common.cancel")}
+                    busy={busy}
+                    onConfirm={async () => {
                       const { data } = await markPaid({ variables: { id: sel.id } });
                       await report(data?.markOrderPaid);
                     }}
-                  >
-                    {t("orders.transferReceived")}
-                  </button>
+                  />
                 </div>
               )}
               {(sel.status === "PAID" || sel.status === "CONFIRMED") && (
@@ -330,12 +410,12 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                   <div className="kicker">{t("orders.assign")}</div>
                   <div className="col" style={{ gap: 9, marginBottom: 10 }}>
                     <div className="field">
-                      <label>{t("orders.guide")}</label>
-                      <input className="input" value={guide} onChange={(e) => setGuide(e.target.value)} placeholder="Bat-Erdene T. (EN, DE)" required />
+                      <label htmlFor="order-guide">{t("orders.guide")}</label>
+                      <input id="order-guide" className="input" value={guide} onChange={(e) => setGuide(e.target.value)} placeholder="Bat-Erdene T. (EN, DE)" required />
                     </div>
                     <div className="field">
-                      <label>{t("orders.driver")}</label>
-                      <input className="input" value={driver} onChange={(e) => setDriver(e.target.value)} placeholder="Ganbold S. · UAZ 452 #3" />
+                      <label htmlFor="order-driver">{t("orders.driver")}</label>
+                      <input id="order-driver" className="input" value={driver} onChange={(e) => setDriver(e.target.value)} placeholder="Ganbold S. · UAZ 452 #3" />
                     </div>
                   </div>
                   {sel.status === "PAID" ? (
@@ -366,21 +446,22 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                 </a>
               )}
               {sel.canCancel && (
-                <button
-                  type="button"
+                <ConfirmDialog
+                  label={t("orders.cancel")}
                   className="btn btn-ghost btn-block btn-xs"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (!confirmCancel) return setConfirmCancel(true);
+                  title={t("orders.cancelTitle", { code: sel.code })}
+                  text={t("orders.cancelText", { name: sel.traveller?.name ?? "", p: usd(sel.totalUsd) })}
+                  confirm={t("orders.cancelConfirm")}
+                  dismiss={t("common.back")}
+                  busy={busy}
+                  onConfirm={async () => {
                     const { data } = await cancel({ variables: { id: sel.id } });
                     await report(data?.cancelOrder);
                   }}
-                >
-                  {confirmCancel ? t("common.confirmDelete") : t("orders.cancel")}
-                </button>
+                />
               )}
             </div>
-          </div>
+          </section>
         )}
       </div>
     </>

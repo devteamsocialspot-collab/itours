@@ -15,6 +15,7 @@ const BOOKING_FIELDS = gql`
     cancelledBy
     createdAt
     stage
+    payBy
     lastDay
     freeCancelUntil
     payoutUsd

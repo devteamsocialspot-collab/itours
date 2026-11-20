@@ -17,7 +17,7 @@
     --secondary: 232 230 226; /* neutral-200 */
     --secondary-foreground: 34 40 49;
     --muted: 232 230 226;
-    --muted-foreground: 119 122 125; /* neutral-600 */
+    --muted-foreground: 89 93 98; /* neutral-700: 6.6:1 on white (neutral-600 was 4.3:1) */
     --accent: 247 244 239; /* section */
     --accent-foreground: 34 40 49;
     --destructive: 176 65 42;
@@ -104,9 +104,9 @@
     --color-cta-800: #6a522c;
     --color-cta-900: #4c3b20;
 
-    --font-heading: var(--font-caprasimo), var(--font-cyr-heading), system-ui, sans-serif;
-    --font-heading-weight: 400;
-    --font-body: var(--font-figtree), var(--font-cyr-body), system-ui, sans-serif;
+    --font-heading: var(--font-fira), system-ui, sans-serif;
+    --font-heading-weight: 600;
+    --font-body: var(--font-fira), system-ui, sans-serif;
 
     --space-1: 4.4px;
     --space-2: 8.8px;
@@ -161,11 +161,18 @@
   figure { margin: 0; }
   figcaption {
     font-size: 11px; margin-top: var(--space-1);
-    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+    color: color-mix(in srgb, var(--color-text) 72%, transparent);
   }
-  .text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+  .text-muted { color: color-mix(in srgb, var(--color-text) 72%, transparent); }
   :focus { outline: none; }
   :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  /* white ring on blue and dark surfaces; white boxes inside them keep the blue ring. :where() keeps the
+     first rule at a bare :focus-visible's weight, so the second one (and any white box's own rule) wins */
+  :where(.site-bar, .topbar, .topbar-dark, .side, footer.site, .hx-in, .hx-foot) :focus-visible { outline-color: #fff; }
+  :is(.hx-search, .menu-pop) :focus-visible { outline-color: var(--color-accent); }
+  /* the sticky bar and the phone's book bar must not cover the focused element (WCAG 2.4.11) */
+  html { scroll-padding-top: 84px; }
+  @media (max-width: 900px) { html:has(.mobile-bookbar) { scroll-padding-bottom: 104px; } }
   ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
 
   /* — rules — */
@@ -196,15 +203,16 @@
   .btn-secondary { border-color: var(--color-divider); }
   .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
   .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
-  .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+  .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); min-height: 24px; } /* WCAG 2.5.8 */
   .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
   .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
   .btn-icon { width: 36px; height: 36px; padding: 0; }
   .btn-block { width: 100%; margin-top: var(--space-2); }
 
   /* — forms — */
-  .field > label {
-    display: block; font-size: 12px; margin-bottom: 5px;
+  fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .field > label, .field > legend {
+    display: block; font-size: 12px; margin-bottom: 5px; padding: 0;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
   .input {
@@ -256,7 +264,7 @@
   .card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
   .card-meta {
     display: flex; align-items: center; gap: 6px; font-size: 11px;
-    color: color-mix(in srgb, var(--color-text) 50%, transparent);
+    color: color-mix(in srgb, var(--color-text) 72%, transparent);
   }
   .elev-sm { box-shadow: var(--shadow-sm); }
   .elev-md { box-shadow: var(--shadow-md); }
@@ -291,7 +299,7 @@
   .table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .table th {
     text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-text) 60%, transparent);
+    color: color-mix(in srgb, var(--color-text) 72%, transparent);
     padding: var(--space-2); border-bottom: 1px solid var(--color-divider);
   }
   .table td {
@@ -326,10 +334,12 @@
   .btn, .tag, .seg, .input { border-radius: 999px; }
   .input { padding-inline: 14px; }
 
+  /* ponytail: the names stay (about 115 uses), only the opacities rose to reach WCAG AA: ink-55/60 about
+     5.6:1 on the section colour, ink-45 (icon buttons) about 4:1. Still lighter than body text. */
   :root {
-    --ink-45: rgba(34, 40, 49, 0.45);
-    --ink-55: rgba(34, 40, 49, 0.55);
-    --ink-60: rgba(34, 40, 49, 0.6);
+    --ink-45: rgba(34, 40, 49, 0.6);
+    --ink-55: rgba(34, 40, 49, 0.72);
+    --ink-60: rgba(34, 40, 49, 0.72);
     --ink-70: rgba(34, 40, 49, 0.7);
     --ink-75: rgba(34, 40, 49, 0.75);
     --ink-80: rgba(34, 40, 49, 0.8);
@@ -385,16 +395,16 @@
   .site-bar > .wrap { display: flex; align-items: center; gap: 26px; padding: 14px 40px; }
   .site-links { display: flex; gap: 26px; }
   .site-links a { color: inherit; text-decoration: none; font-size: 14px; white-space: nowrap; }
-  .site-links a:hover, .site-links a[aria-current] { color: var(--color-cta); }
+  /* white with a gold underline: gold text on the blue was 3.1:1; as an indicator line 3:1 is enough */
+  .site-links a:hover, .site-links a[aria-current] { color: #fff; text-decoration: underline 2px var(--color-cta); text-underline-offset: 6px; }
   .site-bar .plain { white-space: nowrap; }
   .site-actions { margin-left: 18px; }
   /* the header is brand blue: light text, gold accents; the ink tokens flip so inline styles inside still read */
   .topbar, .site-bar {
     background: var(--color-accent); color: #fff;
-    --ink-45: rgba(255, 255, 255, 0.55); --ink-60: rgba(255, 255, 255, 0.75);
+    --ink-45: rgba(255, 255, 255, 0.8); --ink-60: rgba(255, 255, 255, 0.75);
     --color-divider: rgba(255, 255, 255, 0.3); --color-accent-2-800: var(--color-accent-2-200);
   }
-  :is(.topbar, .site-bar) .brand span { color: var(--color-cta); }
   :is(.topbar, .site-bar) .btn-primary { background: var(--color-cta); color: var(--color-text); }
   :is(.topbar, .site-bar) .btn-primary:hover { background: var(--color-cta-600); }
   :is(.topbar, .site-bar) .btn:not(.btn-primary) { color: #fff; }
@@ -403,9 +413,9 @@
   .topbar-dark { display: flex; align-items: center; gap: 16px; padding: 14px 28px; background: var(--color-neutral-900); color: var(--color-neutral-200); }
   .topbar-dark a:not(.btn) { color: inherit; text-decoration: none; font-size: 13px; }
   .topbar-dark .btn-secondary { border-color: rgba(247, 244, 239, 0.3); color: var(--color-bg); }
-  .brand { font-family: var(--font-heading); font-size: 19px; color: inherit; text-decoration: none; }
-  .brand span { color: var(--color-accent); }
-  .brand-lg { font-size: 21px; }
+  .brand { display: inline-flex; flex: none; background: #fff; border-radius: var(--radius-sm); padding: 4px 8px; text-decoration: none; }
+  .brand img { display: block; height: 28px; width: auto; }
+  .brand-lg img { height: 32px; }
   .avatar {
     width: 32px; height: 32px; border-radius: 50%; flex: none;
     background: var(--color-accent-2-600); color: var(--color-bg);
@@ -496,10 +506,13 @@
     border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--color-text); min-width: 0;
   }
   .search-pill input:focus-visible, .search-pill select:focus-visible { outline: none; }
+  .search-pill:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; } /* the ring moves to the pill */
   .search-pill .sep { width: 1px; height: 18px; background: var(--color-divider); margin: 0 12px; flex: none; }
   .search-layout { display: grid; grid-template-columns: 270px 1fr; align-items: start; }
   .filter-rail { padding: 22px 22px 30px 32px; }
-  .filter-rail section { margin-bottom: 22px; }
+  .filter-rail fieldset { border: 0; padding: 0; margin: 0 0 22px; min-width: 0; }
+  .filter-rail legend { padding: 0; }
+  .filter-rail.open .rail-done { position: sticky; bottom: 0; background: var(--color-bg); padding: 8px 0 12px; }
   .rail-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font-family: var(--font-heading); font-size: 16px; }
   .rail-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
   .search-results { padding: 22px 32px 34px 10px; min-width: 0; }
@@ -589,14 +602,14 @@
   /* — partner / admin — */
   .shell { display: grid; grid-template-columns: 228px 1fr; min-height: 100vh; }
   .side { background: var(--color-neutral-900); color: var(--color-neutral-200); padding: 18px 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
-  .side-brand { font-family: var(--font-heading); font-size: 18px; color: var(--color-bg); padding: 0 8px 18px; text-decoration: none; }
-  .side-brand span { color: var(--color-cta); }
+  .side-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 0 8px 18px; }
+  .side-brand span { color: var(--color-cta); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
   .side-co { display: flex; align-items: center; gap: 10px; background: rgba(247, 244, 239, 0.08); border-radius: 16px; padding: 9px 10px; margin-bottom: 18px; }
   .side nav { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
   .side nav a, .side nav button { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 14px; color: inherit; text-decoration: none; background: none; border: 0; cursor: pointer; text-align: left; }
   .side nav a:hover, .side nav button:hover { background: rgba(247, 244, 239, 0.08); }
   .side nav a[aria-current] { background: var(--color-accent); color: #fff; font-weight: 700; }
-  .side .count { margin-left: auto; font-size: 11px; color: rgba(247, 244, 239, 0.45); }
+  .side .count { margin-left: auto; font-size: 11px; color: rgba(247, 244, 239, 0.7); }
   .side .badge { margin-left: auto; background: var(--color-accent-600); color: var(--color-bg); font-size: 10.5px; border-radius: 999px; padding: 1px 7px; }
   .side-tip { margin-top: auto; background: rgba(247, 244, 239, 0.07); border-radius: 18px; padding: 14px; }
   .side-lang { margin: 16px 8px; }
@@ -614,15 +627,18 @@
   .ed-item .input { min-height: 30px; background: transparent; border-color: transparent; padding-inline: 4px; }
   .ed-item .input:hover { border-color: var(--color-divider); }
   .ed-item.warn { border: 1.5px solid var(--color-cta-500); }
-  .x-btn { border: 0; background: none; cursor: pointer; color: var(--ink-45); font-size: 16px; padding: 0 4px; }
-  .x-btn:hover { color: var(--color-accent-700); }
+  .x-btn { border: 0; background: none; cursor: pointer; color: var(--ink-45); font-size: 16px; padding: 0 4px; min-width: 24px; min-height: 24px; display: inline-grid; place-items: center; }
+  .x-btn:hover { color: var(--color-cta-800); }
   .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .thumbs .photo { height: 110px; border-radius: 16px; }
   .thumb-actions { position: absolute; bottom: 6px; right: 6px; display: flex; gap: 4px; }
-  .thumb-actions button { border: 0; border-radius: 999px; background: rgba(34, 40, 49, 0.72); color: #f7f4ef; font-size: 11px; padding: 2px 8px; cursor: pointer; }
+  .thumb-actions button { border: 0; border-radius: 999px; background: rgba(34, 40, 49, 0.72); color: #f7f4ef; font-size: 11px; min-height: 24px; padding: 3px 10px; cursor: pointer; }
   .table td { vertical-align: top; }
   .table tr.sel { background: var(--color-accent-100); }
   .table a.rowlink { color: inherit; text-decoration: none; display: block; }
+  .table button.rowlink { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; text-align: left; cursor: pointer; }
+  /* compare: the row labels stay put while the table scrolls sideways */
+  .compare th[scope="row"] { position: sticky; left: 0; background: var(--color-bg); z-index: 1; text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 400; }
   .queue { background: var(--color-surface); border-radius: 24px; padding: 14px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .queue .photo { width: 84px; height: 60px; border-radius: 14px; flex: none; }
 
@@ -631,14 +647,12 @@
   .form { display: flex; flex-direction: column; gap: 12px; }
 
   footer.site { padding: 52px 0 28px; font-size: 13.5px; color: rgb(255 255 255 / 0.7); background: var(--color-neutral-900); --color-divider: rgb(255 255 255 / 0.25); }
-  footer.site .brand { color: #fff; }
-  footer.site .brand span { color: var(--color-cta); }
   footer.site nav { display: flex; flex-direction: column; gap: 9px; }
   footer.site a { color: rgb(255 255 255 / 0.88); text-decoration: none; }
   footer.site a:hover { color: var(--color-cta); }
-  footer.site .kicker { color: rgb(255 255 255 / 0.45); }
+  footer.site .kicker { color: rgb(255 255 255 / 0.7); }
   .footer-in { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 32px; padding-inline: 40px; }
-  .footer-note { margin-top: 36px; padding: 20px 40px 0; border-top: 1px solid rgb(255 255 255 / 0.1); font-size: 12px; color: rgb(255 255 255 / 0.45); }
+  .footer-note { margin-top: 36px; padding: 20px 40px 0; border-top: 1px solid rgb(255 255 255 / 0.1); font-size: 12px; color: rgb(255 255 255 / 0.7); }
 
   @media print {
     .topbar, .site-bar, .no-print, footer.site { display: none !important; }
@@ -649,6 +663,9 @@
     .pad, .gutter, .site-bar > .wrap { padding-inline: 16px; }
     .topbar { padding: 10px 16px; flex-wrap: wrap; }
     .site-bar > .wrap { gap: 8px; }
+    /* the wide logo would push the language switch onto two lines on a 390px phone */
+    .brand { padding: 3px 6px; }
+    .brand img, .brand-lg img { height: 22px; }
     .site-actions { margin-left: 0; gap: 6px; }
     .site-bar .seg-opt { padding-inline: 9px; } /* signed out on a 320px phone, the bar's right side needs these 12px */
     .hide-m { display: none !important; } /* !important: it has to beat whatever display the element's own classes set */
@@ -660,7 +677,8 @@
     .grid-4.keep-m, .grid-5.keep-m { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .search-layout { grid-template-columns: 1fr; }
     .filter-rail { padding: 16px; }
-    .filter-rail:not(.open) > section { display: none; } /* folded above the results until the toggle opens it */
+    .filter-rail:not(.open) > fieldset { display: none; } /* folded above the results until the toggle opens it */
+    .chip span { padding: 6px 12px; font-size: 12px; } /* comfort on a phone; AA does not need it */
     .search-results { padding: 4px 16px 30px; }
     /* the search pill: "where" gets its own row, then month, travellers and the button */
     .search-pill { display: grid; grid-template-columns: 1fr auto auto; gap: 8px 10px; border-radius: 22px; }
@@ -685,6 +703,7 @@
     .mobile-bookbar {
       display: flex; align-items: center; gap: 12px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
       background: var(--color-surface); border-top: 1px solid var(--color-divider); padding: 12px 16px 20px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom)); /* clears the iPhone home indicator (viewport-fit=cover) */
     }
     .mobile-bookbar + footer.site { padding-bottom: 100px; } /* or the fixed bar covers the footer's last lines */
     /* the back office: the sidebar turns into a bar over the page — brand and language, then the links in a swipeable row */
@@ -701,6 +720,7 @@
     .tabs { padding: 0 16px; }
     .two-col { grid-template-columns: minmax(0, 1fr) !important; }
     .thumbs { grid-template-columns: 1fr 1fr; }
+    .queue-note { flex: 1 1 100%; }
   }
 
   /* Card fields only make sense when paying by card. */
@@ -746,9 +766,12 @@
   .hx-trust svg { color: var(--color-cta); }
   .hx-caption { font-size: 12.5px; color: rgb(255 255 255 / 0.75); }
   .hx-caption a { color: #fff; }
-  .hx-dots { display: flex; gap: 6px; }
-  .hx-dots button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 999px; cursor: pointer; background: rgb(255 255 255 / 0.45); transition: width 0.3s, background 0.3s; }
-  .hx-dots button[aria-current="true"] { width: 26px; background: var(--color-cta); }
+  /* a 24x24 button (WCAG 2.5.8) around the 9px dot, which ::before draws */
+  .hx-dots { display: flex; }
+  .hx-dots button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; transition: width 0.3s; }
+  .hx-dots button::before { content: ""; width: 9px; height: 9px; border-radius: 999px; background: rgb(255 255 255 / 0.45); transition: width 0.3s, background 0.3s; }
+  .hx-dots button[aria-current="true"] { width: 32px; }
+  .hx-dots button[aria-current="true"]::before { width: 26px; background: var(--color-cta); }
   .hx-card { position: absolute; right: max(40px, calc((100% - 1280px) / 2 + 40px)); bottom: 110px; width: 272px; padding: 16px 18px; border-radius: 22px; color: var(--color-text); background: rgb(255 255 255 / 0.96); box-shadow: var(--shadow-lg); }
   .hx-card p { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: var(--ink-70); }
   .hx-card a { font-size: 12.5px; font-weight: 700; text-decoration: none; }

@@ -28,6 +28,11 @@ export default {
   // ponytail: one fixed USD→MNT rate; read Mongolbank's daily rate here the day prices go live
   /** Prices are set in USD; tögrög is shown next to them at this rate. */
   MNT_PER_USD: parseFloat(process.env.MNT_PER_USD || '3500'),
+  /**
+   * A bank-transfer booking holds its seats this long (BR-04); after it, the hold has lapsed. Not an
+   * env var: the UI copy says "24 hours", and WCAG 2.2.1's 20-hour exception needs it to stay above 20.
+   */
+  HOLD_HOURS: 24,
 
   /** S3-compatible storage (DigitalOcean Spaces). Bucket, endpoint and both keys empty = /upload 404s. */
   SPACE_BUCKET_NAME: process.env.SPACE_BUCKET_NAME || '',

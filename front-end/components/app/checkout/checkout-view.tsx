@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Brand } from "@/components/app/brand";
 import { unitPrice } from "@/components/app/plan/booking-widget";
-import { Photo } from "@/components/app/ui";
+import { Con, Photo } from "@/components/app/ui";
 import { CREATE_BOOKING_MUTATION } from "@/lib/booking/queries";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { useLocale, useT } from "@/lib/i18n";
@@ -29,16 +29,20 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
   const [error, setError] = useState("");
   const [book, { loading }] = useMutation(CREATE_BOOKING_MUTATION);
 
-  const dep = plan.departures.find((d) => d.id === depId && (d.left ?? 0) > 0) ?? nextDeparture(plan);
-  if (!dep) return <p className="auth muted">{t("plan.noDepartures")}</p>;
   const pax = Math.min(Math.max(wanted, 1), plan.maxGroup);
+  // the next departure only when none was picked: a picked one that sold out is never swapped silently (WCAG 3.3.4)
+  const dep = depId ? (plan.departures.find((d) => d.id === depId) ?? null) : nextDeparture(plan);
+  const gone = Boolean(depId) && (!dep || (dep.left ?? 0) < pax);
+  if (!dep && !gone) return <p className="auth muted">{t("plan.noDepartures")}</p>;
   const unit = unitPrice(plan, pax);
   const supplement = room === "SINGLE" ? (plan.singleSupplement ?? 0) * pax : 0;
   const total = unit * pax + supplement;
-  const cancelUntil = day(addDays(dep.startDate, -plan.freeCancelDays), locale);
+  const cancelUntil = dep ? day(addDays(dep.startDate, -plan.freeCancelDays), locale) : "–";
+  const blocked = gone || Boolean(user && user.role !== "USER");
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!dep || blocked) return;
     setError("");
     const { data } = await book({ variables: { planId: plan.id, departureId: dep.id, pax, room, method, notes, accept } });
     const res = data?.createBooking;
@@ -50,6 +54,7 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
     <>
       <header className="topbar">
         <Brand />
+        <span className="small show-m">{t("book.stepOf", { n: 2, step: t("book.stepPayment") })}</span>
         <div className="steps hide-m">
           <span className="row" style={{ gap: 6, color: "var(--color-accent-2-800)" }}>
             <span className="n" style={{ background: "var(--color-accent-2-600)", color: "#eaeee9" }}>
@@ -84,7 +89,15 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
       >
         <form onSubmit={submit}>
           <h2 style={{ margin: "0 0 4px" }}>{t("book.howPay")}</h2>
-          <p style={{ fontSize: 13.5, color: "var(--ink-70)", margin: "0 0 22px" }}>{t("book.payLead", { d: cancelUntil })}</p>
+          <p style={{ fontSize: 13.5, color: "var(--ink-70)", margin: "0 0 22px" }}>{t("book.payLead", { op: plan.operator.name, d: cancelUntil })}</p>
+          {gone && (
+            <div role="alert" className="error col" style={{ gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
+              {t("book.depGone", { n: pax })}
+              <Link href={`/plans/${plan.slug}?pax=${pax}#book`} className="btn btn-secondary btn-sm">
+                {t("book.chooseDate")}
+              </Link>
+            </div>
+          )}
           {user && user.role !== "USER" && <p className="error">{t("book.travellersOnly")}</p>}
           {error && (
             <p role="alert" className="error">
@@ -112,20 +125,20 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
             <div className="grid-2" style={{ gap: 12, marginBottom: 10 }}>
               {/* 1 / -1, not span 2: on a phone the grid has one column, and span 2 would add a second */}
               <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label>{t("book.nameOnCard")}</label>
-                <input className="input" defaultValue={user?.name} autoComplete="off" />
+                <label htmlFor="card-name">{t("book.nameOnCard")}</label>
+                <input id="card-name" className="input" defaultValue={user?.name} autoComplete="off" />
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label>{t("book.cardNumber")}</label>
-                <input className="input" placeholder="4242 4242 4242 4242" inputMode="numeric" autoComplete="off" />
+                <label htmlFor="card-number">{t("book.cardNumber")}</label>
+                <input id="card-number" className="input" placeholder="4242 4242 4242 4242" inputMode="numeric" autoComplete="off" />
               </div>
               <div className="field">
-                <label>{t("book.expiry")}</label>
-                <input className="input" placeholder="MM / YY" autoComplete="off" />
+                <label htmlFor="card-expiry">{t("book.expiry")}</label>
+                <input id="card-expiry" className="input" placeholder="MM / YY" autoComplete="off" />
               </div>
               <div className="field">
-                <label>CVC</label>
-                <input className="input" placeholder="•••" autoComplete="off" />
+                <label htmlFor="card-cvc">CVC</label>
+                <input id="card-cvc" className="input" placeholder="•••" autoComplete="off" />
               </div>
             </div>
           )}
@@ -139,11 +152,12 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
           </div>
 
           <div className="panel-clay" style={{ borderRadius: 22, fontSize: 13, lineHeight: 1.6 }}>
-            <strong>{t("book.confirmRead")}</strong>{" "}
-            {consOf(plan)
-              .map((c) => c.text.toLowerCase())
-              .join("; ")}
-            .
+            <strong style={{ display: "block", marginBottom: 6 }}>{t("book.confirmRead")}</strong>
+            <div className="col" style={{ gap: 4 }}>
+              {consOf(plan).map((c) => (
+                <Con key={c.id}>{c.text}</Con>
+              ))}
+            </div>
             <label className="check" style={{ marginTop: 10 }}>
               <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} required />
               <span>{t("book.acceptTradeoffs")}</span>
@@ -151,12 +165,12 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
           </div>
 
           <div className="row" style={{ gap: 14, marginTop: 22, flexWrap: "wrap" }}>
-            <Link href={`/plans/${plan.slug}?dep=${dep.id}&pax=${pax}`} className="btn btn-secondary" style={{ fontSize: 14 }}>
+            <Link href={`/plans/${plan.slug}?${dep ? `dep=${dep.id}&` : ""}pax=${pax}`} className="btn btn-secondary" style={{ fontSize: 14 }}>
               ← {t("common.back")}
             </Link>
             {/* the label runs long ("$1,240 төлж суудлаа баталгаажуулах"): it wraps on a narrow phone */}
-            <button className="btn btn-cta" disabled={loading} style={{ fontSize: 15, paddingInline: 26, paddingBlock: 11, whiteSpace: "normal" }}>
-              {t("book.payAndConfirm", { p: usd(total) })}
+            <button className="btn btn-cta" disabled={loading || blocked} style={{ fontSize: 15, paddingInline: 26, paddingBlock: 11, whiteSpace: "normal" }}>
+              {method === "BANK" ? t("book.holdSeats") : t("book.payAndConfirm", { p: usd(total) })}
             </button>
           </div>
         </form>
@@ -172,7 +186,7 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
           <div className="sum-lines">
             <div>
               <span className="muted">{t("plan.departure")}</span>
-              <span className="semi">{dayRange(dep.startDate, plan.days, locale)}</span>
+              <span className="semi">{dep ? dayRange(dep.startDate, plan.days, locale) : "–"}</span>
             </div>
             <div>
               <span className="muted">{t("home.travellers")}</span>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useMutation, useQuery } from "@apollo/client";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { useReport } from "@/lib/hooks/use-report";
 import { useT } from "@/lib/i18n";
@@ -15,12 +17,21 @@ export function useSavedIds() {
   return { traveller: user?.role === "USER", ids: new Set(plans.map((plan) => plan.id)) };
 }
 
-/** Save / unsave for travellers; renders nothing for anyone else. */
+/** Save / unsave for travellers; a guest gets a Save that signs in and comes back; agencies and staff, nothing. */
 export function SaveButton({ planId, block }: { planId: string; block?: boolean }) {
   const t = useT();
+  const { user, loading: userLoading } = useCurrentUser();
   const { traveller, ids } = useSavedIds();
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
   const [toggle, { loading }] = useMutation(TOGGLE_SAVE_MUTATION, { refetchQueries: [SAVED_PLANS_QUERY], awaitRefetchQueries: true });
   const report = useReport();
+  if (!user && !userLoading)
+    return (
+      <Link className={cn("btn btn-secondary btn-sm", block && "btn-block")} href={`/login?next=${encodeURIComponent(pathname + (search ? `?${search}` : ""))}`}>
+        {t("plan.save")}
+      </Link>
+    );
   if (!traveller) return null;
   const saved = ids.has(planId);
   return (

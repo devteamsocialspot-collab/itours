@@ -3,12 +3,14 @@
 import { ChevronDown, Search } from "lucide-react";
 import Form from "next/form";
 import Link from "next/link";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { flushSync } from "react-dom";
 import { SaveButton, useSavedIds } from "@/components/app/save-button";
 import { Footer, SiteHeader } from "@/components/app/site-header";
 import { Con, Photo, Pro, Score, Stars } from "@/components/app/ui";
 import { useLocale, useT } from "@/lib/i18n";
-import { AREAS, consOf, departureFor, LODGING, nextDeparture, prosOf } from "@/lib/plan/helpers";
+import { AREAS, consOf, departureFor, LODGING, lodgingKey, nextDeparture, prosOf } from "@/lib/plan/helpers";
 import type { Plan, PlanFacet } from "@/lib/types";
 import { day, mnt, monthYear, pick, usd } from "@/lib/utils";
 
@@ -27,16 +29,25 @@ export type SearchParams = {
   sort: string;
 };
 
-/** A GET form (next/form = client-side navigation) that resubmits when any filter changes. */
-function AutoForm(props: React.ComponentProps<typeof Form>) {
+/** The rail's difficulty values and their labels. */
+const DIFF_KEY: Record<string, string> = { easy: "EASY", moderate: "MODERATE", hard: "HARD" };
+
+/**
+ * A GET form (next/form = client-side navigation) that resubmits when any filter changes, as a transition
+ * so the results can say they are loading (`onPending`).
+ */
+function AutoForm({ onPending, ...props }: React.ComponentProps<typeof Form> & { onPending: (pending: boolean) => void }) {
   const ref = useRef<HTMLFormElement>(null);
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  useEffect(() => onPending(pending), [pending, onPending]);
   useEffect(() => {
     const form = ref.current!;
     // the native "change" fires once a slider is released, not on every pixel like React's onChange
-    const submit = () => form.requestSubmit();
+    const submit = () => start(() => router.push(`/search?${new URLSearchParams(new FormData(form) as unknown as Record<string, string>)}`));
     form.addEventListener("change", submit);
     return () => form.removeEventListener("change", submit);
-  }, []);
+  }, [router]);
   return <Form ref={ref} {...props} />;
 }
 
@@ -47,22 +58,38 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
   const saved = useSavedIds();
   // on a phone the rail folds up above the results; the count tells what it's hiding
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [pending, setPending] = useState(false);
   const active = [params.area, params.score, params.diff].filter(Boolean).length + params.sleep.length + params.db.length + params.op.length + (params.max < 3000 ? 1 : 0);
   const { q, month, pax, sort } = params;
   const title = `${q ? t("search.resultsFor", { n: plans.length, q }) : t("search.resultsTitle", { n: plans.length })}${params.area ? ` · ${t(`regions.${params.area}.name`)}` : ""}${month ? `, ${monthYear(month, locale)}` : ""}`;
   const keep = { q, month, days: params.days, pax: String(pax) };
-  const sortHref = (value: string) => {
+  /** This search's URL, minus one value (a chip's ×) or with another sort. */
+  const searchHref = (drop?: [string, string], sortBy = sort) => {
     const query = new URLSearchParams();
-    for (const [key, val] of Object.entries(params)) for (const item of Array.isArray(val) ? val : [String(val)]) if (item) query.append(key, item);
-    query.set("sort", value);
+    for (const [key, val] of Object.entries(params))
+      for (const item of Array.isArray(val) ? val : [String(val)]) if (item && key !== "sort" && !(drop?.[0] === key && drop[1] === item)) query.append(key, item);
+    query.set("sort", sortBy);
     return `/search?${query}`;
   };
+  const sortHref = (value: string) => searchHref(undefined, value);
+  // every filter in force, the hero's hidden "days" too, each with a link that drops it
+  const chips = [
+    params.days && (["days", params.days, `${t("home.days")}: ${params.days === "10-30" ? "10+" : params.days.replace("-", "–")}`] as const),
+    month && (["month", month, monthYear(month, locale)] as const),
+    params.area && (["area", params.area, t(`operatorPage.area.${params.area}`)] as const),
+    params.score && (["score", params.score, `${t("plan.expectationScore")} ${params.score}+`] as const),
+    params.max < 3000 && (["max", String(params.max), `${t("search.maxPrice")}: ${usd(params.max)}`] as const),
+    params.diff && (["diff", params.diff, t(`plan.difficulty.${DIFF_KEY[params.diff] ?? params.diff}`)] as const),
+    ...params.sleep.map((value) => ["sleep", value, t(lodgingKey(value) ?? value)] as const),
+    ...params.db.map((value) => ["db", value, t(`search.db.${value}`)] as const),
+    ...params.op.map((value) => ["op", value, facets.find((facet) => facet.slug === value)?.name ?? value] as const),
+  ].filter((chip) => Boolean(chip)) as (readonly [string, string, string])[];
 
   return (
     <>
       <SiteHeader />
       <main className="wrap search-layout">
-        <AutoForm action="/search" className={filtersOpen ? "filter-rail open" : "filter-rail"}>
+        <AutoForm action="/search" className={filtersOpen ? "filter-rail open" : "filter-rail"} onPending={setPending}>
           {Object.entries(keep).map(([key, value]) => value && <input key={key} type="hidden" name={key} value={value} />)}
           <input type="hidden" name="sort" value={sort} />
           <div className="row-base" style={{ justifyContent: "space-between", marginBottom: 16 }}>
@@ -79,8 +106,8 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
             </Link>
           </div>
 
-          <section>
-            <div className="kicker">{t("search.region")}</div>
+          <fieldset>
+            <legend className="kicker">{t("search.region")}</legend>
             <div className="wrap-row">
               {["", ...AREAS].map((value) => (
                 <label key={value} className="chip">
@@ -89,10 +116,10 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
                 </label>
               ))}
             </div>
-          </section>
+          </fieldset>
 
-          <section>
-            <div className="kicker">{t("plan.expectationScore")}</div>
+          <fieldset>
+            <legend className="kicker">{t("plan.expectationScore")}</legend>
             <div className="col" style={{ gap: 7, fontSize: 13 }}>
               {[
                 ["90", t("search.score90")],
@@ -106,21 +133,21 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
                 </label>
               ))}
             </div>
-          </section>
+          </fieldset>
 
-          <section>
-            <div className="kicker">
+          <fieldset>
+            <legend className="kicker">
               {t("search.maxPrice")}: {usd(params.max)}
-            </div>
+            </legend>
             <input type="range" name="max" min={200} max={3000} step={50} defaultValue={params.max} aria-label={t("search.maxPrice")} />
             <div className="row small muted" style={{ justifyContent: "space-between" }}>
               <span>$200</span>
               <span>$3,000</span>
             </div>
-          </section>
+          </fieldset>
 
-          <section>
-            <div className="kicker">{t("search.difficulty")}</div>
+          <fieldset>
+            <legend className="kicker">{t("search.difficulty")}</legend>
             <div className="seg" style={{ width: "100%" }}>
               {[
                 ["", t("search.any")],
@@ -134,10 +161,10 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
                 </label>
               ))}
             </div>
-          </section>
+          </fieldset>
 
-          <section>
-            <div className="kicker">{t("search.sleepingArrangement")}</div>
+          <fieldset>
+            <legend className="kicker">{t("search.sleepingArrangement")}</legend>
             <div className="wrap-row">
               {LODGING.map(({ value, key }) => (
                 <label key={value} className="chip">
@@ -146,10 +173,10 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
                 </label>
               ))}
             </div>
-          </section>
+          </fieldset>
 
-          <section>
-            <div className="kicker">{t("search.dealBreakers")}</div>
+          <fieldset>
+            <legend className="kicker">{t("search.dealBreakers")}</legend>
             <div className="wrap-row">
               {(["shower", "flush", "drive", "english"] as const).map((value) => (
                 <label key={value} className="chip sage">
@@ -158,10 +185,10 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
                 </label>
               ))}
             </div>
-          </section>
+          </fieldset>
 
-          <section>
-            <div className="kicker">{t("search.operator")}</div>
+          <fieldset>
+            <legend className="kicker">{t("search.operator")}</legend>
             <div className="col" style={{ gap: 7 }}>
               {facets.map((facet) => (
                 <label key={facet.slug} className="check" style={{ justifyContent: "space-between" }}>
@@ -173,13 +200,33 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
                 </label>
               ))}
             </div>
-          </section>
+          </fieldset>
           <noscript>
             <button className="btn btn-primary btn-block">{t("search.apply")}</button>
           </noscript>
+          {filtersOpen && (
+            <div className="rail-done show-m">
+              <button
+                type="button"
+                className="btn btn-primary btn-block"
+                onClick={() => {
+                  // closed first, so the scroll lands where the heading is once the rail has folded
+                  flushSync(() => setFiltersOpen(false));
+                  const heading = document.getElementById("results");
+                  heading?.scrollIntoView();
+                  heading?.focus({ preventScroll: true });
+                }}
+              >
+                {t("search.showN", { n: plans.length })}
+              </button>
+            </div>
+          )}
         </AutoForm>
 
-        <div className="search-results">
+        <div className="search-results" aria-busy={pending} style={pending ? { opacity: 0.6 } : undefined}>
+          <p className="sr-only" role="status">
+            {t("search.resultsTitle", { n: plans.length })}
+          </p>
           {/* a new search: where, when, how many; the rail's filters start over */}
           <form action="/search" className="search-pill" style={{ maxWidth: "none", marginBottom: 20, boxShadow: "var(--shadow-sm)" }}>
             <input name="q" defaultValue={q} placeholder={t("home.wherePh")} style={{ fontWeight: 600, flex: 1 }} aria-label={t("home.where")} />
@@ -192,7 +239,18 @@ export function SearchView({ params, plans, facets }: { params: SearchParams; pl
               <Search size={15} strokeWidth={2.75} />
             </button>
           </form>
-          <h3 style={{ margin: "0 0 4px" }}>{title}</h3>
+          {chips.length > 0 && (
+            <div className="wrap-row" style={{ marginBottom: 10 }}>
+              {chips.map(([key, value, label]) => (
+                <Link key={`${key}=${value}`} href={searchHref([key, value])} className="tag tag-outline" style={{ textDecoration: "none" }} aria-label={t("search.removeFilter", { f: label })}>
+                  {label} ×
+                </Link>
+              ))}
+            </div>
+          )}
+          <h3 id="results" tabIndex={-1} style={{ margin: "0 0 4px" }}>
+            {title}
+          </h3>
           <div className="row" style={{ marginBottom: 18, flexWrap: "wrap" }}>
             <span className="muted" style={{ fontSize: 12.5, marginRight: "auto" }}>
               {t("search.rankingNote")}

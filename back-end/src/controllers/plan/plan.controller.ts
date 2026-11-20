@@ -12,7 +12,6 @@ import { PlanModel } from '../../models/plan/plan.model';
 import { SavedPlanModel } from '../../models/plan/saved-plan.model';
 import { UserModel } from '../../models/user/user.model';
 
-import { BOOKING_STATUS } from '../../types/booking/booking.type';
 import { TTokenValue } from '../../types/common.type';
 import {
   AREA,
@@ -27,6 +26,7 @@ import {
 import { ROLES, STAFF_ROLES } from '../../types/user/role.type';
 
 import { cleanUrls, pagination, pickFields, slugify, todayUb } from '../../utils';
+import BookingController from '../booking/booking.controller';
 
 const PLAN_FIELDS: (keyof TPlanInput)[] = [
   'titleEn',
@@ -56,9 +56,6 @@ const PLAN_FIELDS: (keyof TPlanInput)[] = [
 
 /** A rating of 2/1/0 per promise; a set of them scores mean / 2 × 100. */
 type Rated = { id: string; area: CLAIM_AREA; ratings?: { score: number }[] };
-
-/** Live bookings only: a cancelled one gives its seats back. */
-const LIVE = { status: { [Op.ne]: BOOKING_STATUS.CANCELLED } };
 
 /** "Best match" pulls a thinly-reviewed plan towards this score, as if it had this many reviews. */
 const PRIOR_SCORE = 80;
@@ -109,7 +106,8 @@ export default class PlanController {
           model: BookingModel,
           as: 'bookings',
           attributes: ['pax'],
-          where: LIVE,
+          // live only: a cancelled booking or a lapsed transfer hold gives its seats back
+          where: BookingController.live(),
           required: false
         }
       ]

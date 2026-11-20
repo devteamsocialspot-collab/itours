@@ -24,7 +24,8 @@ import { ROLES, STAFF_ROLES } from '../../types/user/role.type';
 
 import { addDays, pagination, todayUb } from '../../utils';
 
-const { COMMISSION_PERCENT } = config;
+const { COMMISSION_PERCENT, HOLD_HOURS } = config;
+const HOLD_MS = HOLD_HOURS * 3600 * 1000;
 
 /** Which stages each orders-inbox tab holds. */
 const TAB_STAGES: Record<ORDER_TAB, BOOKING_STAGE[]> = {
@@ -32,7 +33,7 @@ const TAB_STAGES: Record<ORDER_TAB, BOOKING_STAGE[]> = {
   [ORDER_TAB.CONFIRMED]: [BOOKING_STAGE.CONFIRMED],
   [ORDER_TAB.TRAVELLING]: [BOOKING_STAGE.TRAVELLING],
   [ORDER_TAB.COMPLETED]: [BOOKING_STAGE.COMPLETED],
-  [ORDER_TAB.CANCELLED]: [BOOKING_STAGE.CANCELLED]
+  [ORDER_TAB.CANCELLED]: [BOOKING_STAGE.CANCELLED, BOOKING_STAGE.EXPIRED]
 };
 
 type WithTrip = BookingModel & { departure: DepartureModel; plan: PlanModel };
@@ -52,6 +53,38 @@ export default class BookingController {
     return booking as WithTrip;
   }
 
+  // —— the bank-transfer hold (BR-04) ——
+
+  /**
+   * The one rule for "this booking holds seats and counts as a sale": not cancelled, and not a
+   * transfer hold older than HOLD_HOURS. Expired lazily — no job rewrites the row; every seat count,
+   * sales figure and stage reads it through here (where-clause) or isExpired (a loaded row).
+   */
+  static live() {
+    return {
+      [Op.or]: [
+        { status: { [Op.notIn]: [BOOKING_STATUS.CANCELLED, BOOKING_STATUS.PENDING_PAYMENT] } },
+        { status: BOOKING_STATUS.PENDING_PAYMENT, createdAt: { [Op.gte]: this._holdCutoff() } }
+      ]
+    };
+  }
+
+  /** Holds made before this instant have lapsed. */
+  static _holdCutoff() {
+    return new Date(Date.now() - HOLD_MS);
+  }
+
+  static isExpired(booking: Pick<BookingModel, 'status' | 'createdAt'>) {
+    return booking.status === BOOKING_STATUS.PENDING_PAYMENT && booking.createdAt < this._holdCutoff();
+  }
+
+  /** ISO instant the transfer must arrive by; kept after it lapses, null once paid or cancelled. */
+  static payBy(booking: Pick<BookingModel, 'status' | 'createdAt'>) {
+    return booking.status === BOOKING_STATUS.PENDING_PAYMENT
+      ? new Date(booking.createdAt.getTime() + HOLD_MS).toISOString()
+      : null;
+  }
+
   // —— derived fields ——
 
   /** The trip's last day (YYYY-MM-DD). */
@@ -59,8 +92,9 @@ export default class BookingController {
     return addDays(booking.departure.startDate, booking.plan.days - 1);
   }
 
-  /** The stored state, plus where a confirmed trip is in time. */
+  /** The stored state, plus where a confirmed trip is in time, or that a hold has lapsed. */
   static stage(booking: WithTrip): BOOKING_STAGE {
+    if (this.isExpired(booking)) return BOOKING_STAGE.EXPIRED;
     if (booking.status !== BOOKING_STATUS.CONFIRMED)
       return booking.status as unknown as BOOKING_STAGE;
     const today = todayUb();
@@ -85,6 +119,7 @@ export default class BookingController {
   static canCancel(booking: WithTrip) {
     return (
       booking.status !== BOOKING_STATUS.CANCELLED &&
+      !this.isExpired(booking) &&
       booking.departure.startDate > todayUb()
     );
   }
@@ -131,7 +166,7 @@ export default class BookingController {
       if (departure.startDate < todayUb()) throw new Error('error.departurePast');
       const taken =
         (await BookingModel.sum('pax', {
-          where: { departureId: departure.id, status: { [Op.ne]: BOOKING_STATUS.CANCELLED } },
+          where: { departureId: departure.id, ...this.live() },
           transaction
         })) || 0;
       if (departure.seats - taken < pax) throw new Error('error.notEnoughSeats');
@@ -240,7 +275,7 @@ export default class BookingController {
       (b) =>
         TAB_STAGES[tab].includes(this.stage(b)) &&
         (!needle ||
-          [b.code, b.traveller?.name ?? '', b.plan.titleEn].some((value) =>
+          [b.code, b.traveller?.name ?? '', b.plan.titleEn, b.plan.titleMn].some((value) =>
             value.toLowerCase().includes(needle)
           ))
     );
@@ -271,10 +306,12 @@ export default class BookingController {
     return booking;
   }
 
-  /** The bank transfer arrived. */
+  /** The bank transfer arrived, within the hold. */
   static async markPaid(id: string, operatorId: string) {
     const booking = await this.findOwnCheck(id, operatorId);
     if (booking.status !== BOOKING_STATUS.PENDING_PAYMENT) throw new Error('error.orderNotPending');
+    // its seats may be someone else's by now; what happens to a late transfer is a product decision
+    if (this.isExpired(booking)) throw new Error('error.holdExpired');
     await booking.update({ status: BOOKING_STATUS.PAID });
     return booking;
   }

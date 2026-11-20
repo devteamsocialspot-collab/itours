@@ -48,36 +48,36 @@ export function ProfileForm({ operator }: { operator: Operator }) {
       >
         {/* 1 / -1, not span 2: on a phone the grid has one column, and span 2 would add a second */}
         <div className="field" style={{ gridColumn: "1 / -1" }}>
-          <label>{t("profile.name")}</label>
-          <input className="input" value={form.name} onChange={set("name")} required />
+          <label htmlFor="pf-name">{t("profile.name")}</label>
+          <input id="pf-name" className="input" value={form.name} onChange={set("name")} required />
         </div>
         <div className="field">
-          <label>{t("profile.licence")}</label>
-          <input className="input" value={form.licenceNo} onChange={set("licenceNo")} />
+          <label htmlFor="pf-licenceNo">{t("profile.licence")}</label>
+          <input id="pf-licenceNo" className="input" value={form.licenceNo} onChange={set("licenceNo")} />
         </div>
         <div className="field">
-          <label>{t("profile.founded")}</label>
-          <input className="input" type="number" value={form.foundedYear} onChange={set("foundedYear")} />
+          <label htmlFor="pf-foundedYear">{t("profile.founded")}</label>
+          <input id="pf-foundedYear" className="input" type="number" value={form.foundedYear} onChange={set("foundedYear")} />
         </div>
         <div className="field">
-          <label>{t("profile.city")}</label>
-          <input className="input" value={form.city} onChange={set("city")} />
+          <label htmlFor="pf-city">{t("profile.city")}</label>
+          <input id="pf-city" className="input" value={form.city} onChange={set("city")} />
         </div>
         <div className="field">
-          <label>{t("profile.languages")}</label>
-          <input className="input" value={form.languages} onChange={set("languages")} />
+          <label htmlFor="pf-languages">{t("profile.languages")}</label>
+          <input id="pf-languages" className="input" value={form.languages} onChange={set("languages")} />
         </div>
         <div className="field" style={{ gridColumn: "1 / -1" }}>
-          <label>{t("profile.about")}</label>
-          <textarea className="input" style={{ borderRadius: 18, minHeight: 110 }} value={form.about} onChange={set("about")} />
+          <label htmlFor="pf-about">{t("profile.about")}</label>
+          <textarea id="pf-about" className="input" style={{ borderRadius: 18, minHeight: 110 }} value={form.about} onChange={set("about")} />
         </div>
         <div className="field" style={{ gridColumn: "1 / -1" }}>
-          <label>{t("profile.fleet")}</label>
-          <textarea className="input" style={{ borderRadius: 18 }} value={form.fleet} onChange={set("fleet")} />
+          <label htmlFor="pf-fleet">{t("profile.fleet")}</label>
+          <textarea id="pf-fleet" className="input" style={{ borderRadius: 18 }} value={form.fleet} onChange={set("fleet")} />
         </div>
         <div className="field" style={{ gridColumn: "1 / -1" }}>
-          <label>{t("profile.cover")}</label>
-          <input className="input" type="url" value={form.coverUrl} onChange={set("coverUrl")} placeholder="https://…" />
+          <label htmlFor="pf-coverUrl">{t("profile.cover")}</label>
+          <input id="pf-coverUrl" className="input" type="url" value={form.coverUrl} onChange={set("coverUrl")} placeholder="https://…" />
         </div>
         <button className="btn btn-primary" disabled={loading} style={{ justifySelf: "start" }}>
           {t("profile.save")}

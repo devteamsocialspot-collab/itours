@@ -15,14 +15,18 @@ export enum BOOKING_STATUS {
   CANCELLED = 'CANCELLED'
 }
 
-/** What a traveller and the orders inbox see: the stored state plus where the trip is in time. */
+/**
+ * What a traveller and the orders inbox see: the stored state plus where the trip is in time.
+ * EXPIRED = a PENDING_PAYMENT hold past its HOLD_HOURS; not stored either.
+ */
 export enum BOOKING_STAGE {
   PENDING_PAYMENT = 'PENDING_PAYMENT',
   PAID = 'PAID',
   CONFIRMED = 'CONFIRMED',
   TRAVELLING = 'TRAVELLING',
   COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
+  CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED'
 }
 
 /** The orders inbox tabs. ACTION = paid or awaiting a transfer, i.e. the operator must do something. */

@@ -60,6 +60,7 @@ const en = {
     reviewIncomplete: 'Rate every pro and con',
     orderNotPaid: 'The transfer has not been received yet',
     orderNotPending: 'Only pending orders can be changed',
+    holdExpired: 'The 24-hour hold has expired, so this order can no longer be marked as paid',
     guideRequired: 'Assign a guide to confirm',
     uploadNotConfigured: 'File storage is not configured',
     uploadFailed: 'Upload failed',

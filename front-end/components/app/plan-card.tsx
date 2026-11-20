@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Con, Photo, Pro } from "@/components/app/ui";
 import { useLocale, useT } from "@/lib/i18n";
 import { consOf, nextDeparture, prosOf, seatsLeftKey, type CardPlan } from "@/lib/plan/helpers";
-import { mnt, pick, usd } from "@/lib/utils";
+import { mnt, pick, scoreTone, usd } from "@/lib/utils";
 
 /** The card on the landing's grid (wireframe 1a). */
 export function PlanCard({ plan }: { plan: CardPlan }) {
@@ -19,7 +19,7 @@ export function PlanCard({ plan }: { plan: CardPlan }) {
       <Photo src={plan.photos[0]} alt={plan.region}>
         <div className="photo-tags">
           {plan.score != null && (
-            <span className="tag tag-score">
+            <span className="tag tag-score" style={{ background: scoreTone(plan.score) }}>
               {plan.score} {t("plan.scoreShort")}
             </span>
           )}

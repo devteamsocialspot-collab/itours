@@ -19,7 +19,7 @@ export function BookingWidget({ plan, initialDep, initialPax }: { plan: Plan; in
   const [dep, setDep] = useState(open.find((d) => d.id === initialDep)?.id ?? open[0]?.id);
   const [showAll, setShowAll] = useState(false);
   const left = open.find((d) => d.id === dep)?.left ?? 0;
-  const [pax, setPax] = useState(Math.min(initialPax ?? 2, Math.max(left, 1)));
+  const [pax, setPax] = useState(Math.min(initialPax ?? 2, Math.max(left, 1), plan.maxGroup));
   const [room, setRoom] = useState<Room>("TWIN");
 
   const unit = unitPrice(plan, pax);
@@ -27,6 +27,8 @@ export function BookingWidget({ plan, initialDep, initialPax }: { plan: Plan; in
   const total = unit * pax + supplement;
   const shown = showAll ? open : open.slice(0, 3);
   const departure = open.find((d) => d.id === dep);
+  // "+" stops at the date's free seats or the group's size, and says so
+  const most = Math.max(1, Math.min(left, plan.maxGroup));
 
   return (
     <div className="book-card" id="book">
@@ -45,8 +47,8 @@ export function BookingWidget({ plan, initialDep, initialPax }: { plan: Plan; in
         <div className="panel-sand small">{t("plan.noDepartures")}</div>
       ) : (
         <>
-          <div className="field" style={{ marginBottom: 10 }}>
-            <label>{t("plan.departure")}</label>
+          <fieldset className="field" style={{ marginBottom: 10 }}>
+            <legend>{t("plan.departure")}</legend>
             <div className="col" style={{ gap: 7 }}>
               {shown.map((d) => (
                 <label key={d.id} className="dep-opt">
@@ -60,31 +62,38 @@ export function BookingWidget({ plan, initialDep, initialPax }: { plan: Plan; in
                     }}
                   />
                   <span>{dayRange(d.startDate, plan.days, locale)}</span>
-                  <span className="ml-auto" style={{ fontSize: 11.5, fontWeight: 400, color: (d.left ?? 0) <= 4 ? "var(--color-accent-800)" : "var(--ink-55)" }}>
+                  <span className="ml-auto" style={{ fontSize: 11.5, fontWeight: 400, color: (d.left ?? 0) <= 4 ? "var(--color-cta-800)" : "var(--ink-55)" }}>
                     {t(seatsLeftKey(d.left ?? 0), { n: d.left ?? 0 })}
                   </span>
                 </label>
               ))}
               {open.length > 3 && !showAll && (
-                <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5, alignSelf: "flex-start", padding: 0 }} onClick={() => setShowAll(true)}>
-                  + {open.length - 3}
+                <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5, alignSelf: "flex-start" }} onClick={() => setShowAll(true)}>
+                  {t("plan.moreDates", { n: open.length - 3 })}
                 </button>
               )}
             </div>
-          </div>
+          </fieldset>
 
           <div className="row" style={{ marginBottom: 14, alignItems: "flex-start" }}>
             <div className="field grow">
-              <label>{t("home.travellers")}</label>
-              <div className="stepper">
-                <button type="button" className="btn btn-secondary btn-icon" onClick={() => setPax((x) => Math.max(1, x - 1))} aria-label="−">
+              <label id="pax-label">{t("home.travellers")}</label>
+              <div className="stepper" role="group" aria-labelledby="pax-label">
+                <button type="button" className="btn btn-secondary btn-icon" disabled={pax <= 1} onClick={() => setPax((x) => Math.max(1, x - 1))} aria-label={t("book.fewer")}>
                   −
                 </button>
-                <span style={{ fontSize: 14, fontWeight: 600 }}>{pax}</span>
-                <button type="button" className="btn btn-secondary btn-icon" onClick={() => setPax((x) => Math.min(left, plan.maxGroup, x + 1))} aria-label="+">
+                <output aria-live="polite" style={{ fontSize: 14, fontWeight: 600 }}>
+                  {pax}
+                </output>
+                <button type="button" className="btn btn-secondary btn-icon" disabled={pax >= most} onClick={() => setPax((x) => Math.min(most, x + 1))} aria-label={t("book.more")}>
                   +
                 </button>
               </div>
+              {pax >= most && (
+                <div className="xs muted" style={{ marginTop: 4 }}>
+                  {t("plan.maxOnDate", { n: most })}
+                </div>
+              )}
             </div>
             <div className="field grow">
               <label htmlFor="room">{t("plan.room")}</label>
