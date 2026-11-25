@@ -643,7 +643,8 @@
   .queue .photo { width: 84px; height: 60px; border-radius: 14px; flex: none; }
 
   /* — auth — */
-  .auth { max-width: 420px; margin: 40px auto; padding: 0 16px; }
+  /* width: body is a flex column, so without it the card shrinks to its longest line (half the screen on a phone) */
+  .auth { width: 100%; max-width: 420px; margin: 40px auto; padding: 0 16px; }
   .form { display: flex; flex-direction: column; gap: 12px; }
 
   footer.site { padding: 52px 0 28px; font-size: 13.5px; color: rgb(255 255 255 / 0.7); background: var(--color-neutral-900); --color-divider: rgb(255 255 255 / 0.25); }
@@ -658,6 +659,11 @@
     .topbar, .site-bar, .no-print, footer.site { display: none !important; }
   }
 
+  /* under 360px the full logo leaves no room for the language switch: show only its round emblem (the image's left 68×68) */
+  @media (max-width: 359px) {
+    .brand img, .brand-lg img { width: 22px; object-fit: cover; object-position: left; }
+  }
+
   /* — mobile (wireframes 1k, 1l) — */
   @media (max-width: 900px) {
     .pad, .gutter, .site-bar > .wrap { padding-inline: 16px; }
@@ -667,6 +673,10 @@
     .brand { padding: 3px 6px; }
     .brand img, .brand-lg img { height: 22px; }
     .site-actions { margin-left: 0; gap: 6px; }
+    /* iOS Safari sizes date/month inputs natively and won't shrink them, so the hero search spilled out of its card */
+    @supports (-webkit-touch-callout: none) {
+      input[type="month"].input, input[type="date"].input { -webkit-appearance: none; appearance: none; min-width: 0; width: 100%; }
+    }
     .site-bar .seg-opt { padding-inline: 9px; } /* signed out on a 320px phone, the bar's right side needs these 12px */
     .hide-m { display: none !important; } /* !important: it has to beat whatever display the element's own classes set */
     /* a segmented control with more options than a narrow phone fits wraps to a second row (18px is still a pill on one) */
