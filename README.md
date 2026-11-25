@@ -48,6 +48,7 @@ Demo logins use `SEED_DEMO_PASSWORD` (default `demo1234`); sign in with a phone 
 
 To start over: `docker compose --env-file .env.local down -v`, then up again.
 The demo's bank-transfer holds are seeded 1–20 hours old and lapse 24 hours after booking, so their countdowns run from seed time: reseed shortly before a demo.
+Without payment keys, QPay and card bookings are paid at once (simulated); see [Payments](#payments).
 
 ## The shape of the product
 
@@ -55,7 +56,8 @@ Three surfaces, one loop:
 
 1. **Travellers** search plans ranked by Expectation Score, read each plan's honest summary, cons and
    day-by-day facts (drive hours, showers, toilets, signal) with the route drawn on a map of Mongolia,
-   book a departure and pay (simulated: card, QPay or bank transfer), and after the trip rate every
+   book a departure and pay (QPay or bank transfer from Mongolia, a card through Stripe from abroad — see
+   [Payments](#payments)), and after the trip rate every
    promise the plan made.
 2. **Travel agencies** write plans — the editor won't submit one without three pros, three cons, a
    drive time on every day, a price, a departure and photos — then confirm orders, assign guides and
@@ -64,6 +66,57 @@ Three surfaces, one loop:
 
 Money is held in escrow: the agency is paid the total less `COMMISSION_PERCENT` the day after the trip
 ends. Prices are set in USD and shown in tögrög at `MNT_PER_USD`.
+
+## Payments
+
+Checkout offers two groups: **paying from Mongolia** (QPay, bank transfer) and **paying from abroad**
+(a card through Stripe Checkout). QPay is preselected for a traveller whose country is Mongolia (or
+empty while the site is in Mongolian), a card for everyone else.
+
+Every booking starts `PENDING_PAYMENT` and holds its seats: 24 hours for a transfer, 30 minutes
+(`ONLINE_HOLD_MINUTES`) for QPay and card. A hold that runs out shows as `EXPIRED`, frees its seats and
+counts as nobody's sale or cancellation (`BookingController.live()` / `isExpired()` / `payBy()`).
+
+| Method | With keys | Without keys |
+|---|---|---|
+| QPay | an invoice (amount in ₮ = `totalUsd × MNT_PER_USD`); the booking page shows the QR, the bank-app links and the short link, and asks QPay every 5 s (and on "Check payment") until paid ≥ invoiced | paid at once (simulated) |
+| Card | a Stripe Checkout Session in USD; back on `/trips/<code>?session_id=…` the API retrieves the session and takes it only if `payment_status` is `paid` and its `metadata.bookingId` is this booking | paid at once (simulated) |
+| Bank transfer | the agency presses "Transfer received" in its orders inbox | the same |
+
+Nothing a browser or a callback says is believed: QPay's callback (`GET|POST /payments/qpay/callback?booking=<code>`)
+only triggers a fresh `payment/check`, and Stripe's webhook (`POST /payments/stripe/webhook`,
+`checkout.session.completed`) must carry a valid signature over the raw body. `BookingController.settle()`
+takes a payment once, so the poll, the return page, the callback and the webhook can all report it.
+Money that arrives after the hold is still taken while the seats are free; otherwise the booking stays
+expired with the provider's reference stored and the API log asks for a refund by hand.
+
+The API prints which providers are live at boot (`💳 payments: QPay … · Stripe …`). Env vars, all in
+`back-end/.env.local` (see `.env.example`):
+
+| Var | |
+|---|---|
+| `QPAY_USERNAME`, `QPAY_PASSWORD`, `QPAY_INVOICE_CODE` | merchant credentials from QPay; all three set = QPay is live |
+| `QPAY_BASE_URL` | default `https://merchant-sandbox.qpay.mn`; production is `https://merchant.qpay.mn` |
+| `QPAY_CALLBACK_URL` | public URL of `/payments/qpay/callback` (in dev QPay can't reach it; the page's polling covers it) |
+| `STRIPE_SECRET_KEY` | `sk_test_…` = Stripe is live in test mode |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_…`; without it the webhook answers 404 and the return page alone confirms |
+| `SITE_URL` | the front-end's origin for Stripe's return pages (default `http://localhost:3000`) |
+
+**Testing Stripe locally.** Put a test key in `.env.local`, then forward webhooks with the
+[Stripe CLI](https://docs.stripe.com/stripe-cli) and copy the `whsec_…` it prints into `STRIPE_WEBHOOK_SECRET`:
+
+```bash
+stripe login
+stripe listen --forward-to localhost:8080/payments/stripe/webhook
+stripe trigger checkout.session.completed   # optional: a signed test event (no booking, so it is ignored)
+```
+
+Pay with card `4242 4242 4242 4242`, any future date, any CVC. **QPay** has no public test
+credentials; ask QPay for sandbox ones. Checks: `npx ts-node src/controllers/payment/payment.controller.check.ts`
+(providers faked) and the booking check (holds per method, idempotent settle).
+
+Not done yet: refunds are not automatic — a cancelled paid booking, or a payment that lands after its seats
+were resold, is refunded by hand (Stripe dashboard / QPay `payment/refund`).
 
 ## Routes
 
@@ -81,6 +134,7 @@ ends. Prices are set in USD and shown in tögrög at `MNT_PER_USD`.
 | `/login`, `/register` | anyone | Phone or email + password; register as a traveller or as an agency. |
 | `GET /export/orders` | `OPERATOR` | API: the agency's orders as CSV. |
 | `POST /upload` | signed in | API: image upload to S3-compatible storage; 404s while `SPACE_*` is unset (the editor also takes image links). |
+| `POST /payments/stripe/webhook`, `GET\|POST /payments/qpay/callback` | the providers | API: payment confirmations, re-checked with the provider; 404 while that provider is simulated. |
 
 ## Roles
 
@@ -98,7 +152,8 @@ ends. Prices are set in USD and shown in tögrög at `MNT_PER_USD`.
 | `pnpm build` — tsc → `dist/` | `pnpm build` — next build |
 | `pnpm start` — node dist/index.js | `pnpm start` — next start |
 | `npx ts-node src/controllers/plan/plan.controller.check.ts` — score math | `pnpm lint` — next lint |
-| `npx ts-node src/controllers/booking/booking.controller.check.ts` — seat race, prices, payout (dev DB) | |
+| `npx ts-node src/controllers/booking/booking.controller.check.ts` — seat race, prices, payout, holds per method (dev DB) | |
+| `npx ts-node src/controllers/payment/payment.controller.check.ts` — QPay / Stripe paths, providers faked | |
 
 ## Layout
 
@@ -115,9 +170,10 @@ back-end
     ├── graphql/resolvers/   thin: controller call → { success, message, … } envelope; type resolvers for derived fields
     ├── controllers/<domain> `export default class`, static methods; DB access + validation, throws dictionary keys;
     │                        plan.controller.ts holds the Expectation Score and the publish checklist,
-    │                        booking.controller.ts the seat lock, prices, stages and payouts
+    │                        booking.controller.ts the seat lock, prices, holds, stages and payouts;
+    │                        payment.controller.ts QPay (fetch) and Stripe Checkout
     ├── middleware/          auth.middleware.ts: @auth(permissions) / @authLogin schema transformers
-    ├── route/               REST: /health, /upload, /export/orders
+    ├── route/               REST: /health, /upload, /export/orders, /payments/* (QPay callback, Stripe webhook)
     ├── utils/               pagination, login parsing, envelope helpers; i18n/ = t(), pickLocale(), en/mn dictionaries
     └── seeds/               admin (every boot) and the demo marketplace (empty database only)
 

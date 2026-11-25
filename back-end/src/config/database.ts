@@ -1,6 +1,7 @@
-import { Options, Sequelize } from 'sequelize';
+import { Options, Sequelize, Transaction } from 'sequelize';
 import config from '.';
 import { setupModel } from '../models/database';
+import { clearCatalogue } from '../utils/catalogue';
 
 const {
   POSTGRES_DB_NAME,
@@ -25,6 +26,21 @@ const options: Options = {
 
 const sequelize = new Sequelize(options);
 setupModel(sequelize);
+
+// Any write empties the cached catalogue: after the commit when it runs inside a transaction, so a read
+// racing that transaction can't put the old rows back. Every hook passes its options last.
+const clearAfterWrite = (...args: unknown[]) => {
+  const options = args[args.length - 1] as { transaction?: Transaction | null } | undefined;
+  if (options?.transaction) options.transaction.afterCommit(clearCatalogue);
+  else clearCatalogue();
+};
+sequelize.addHook('afterCreate', clearAfterWrite);
+sequelize.addHook('afterUpdate', clearAfterWrite);
+sequelize.addHook('afterDestroy', clearAfterWrite);
+sequelize.addHook('afterUpsert', clearAfterWrite);
+sequelize.addHook('afterBulkCreate', clearAfterWrite);
+sequelize.addHook('afterBulkUpdate', clearAfterWrite);
+sequelize.addHook('afterBulkDestroy', clearAfterWrite);
 
 export default sequelize;
 
@@ -68,9 +84,18 @@ export const connectDatabase = async () => {
  * is appended for us. A fresh database gets its enums complete from createTable.
  *
  * Every statement is idempotent and only warns on failure, so a half-applied migration can never
- * stop the server coming up. Empty until the first schema change ships after launch.
+ * stop the server coming up.
  */
-const MIGRATIONS: [string, string][] = [];
+const MIGRATIONS: [string, string][] = [
+  [
+    'bookings-payments',
+    `ALTER TABLE "Bookings"
+      ADD COLUMN IF NOT EXISTS "qpayInvoiceId" VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS "stripeSessionId" VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS "paymentRef" VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS "payLink" JSONB`
+  ]
+];
 
 const runMigrations = async () => {
   for (const [name, sql] of MIGRATIONS) {

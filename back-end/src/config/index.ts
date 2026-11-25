@@ -33,6 +33,26 @@ export default {
    * env var: the UI copy says "24 hours", and WCAG 2.2.1's 20-hour exception needs it to stay above 20.
    */
   HOLD_HOURS: 24,
+  /** A QPay or card booking holds its seats this long while the traveller pays. */
+  ONLINE_HOLD_MINUTES: 30,
+
+  /**
+   * Payments. A provider whose keys are empty is simulated: its bookings are paid at once, as in the
+   * demo. QPay is the v2 merchant API; its sandbox is the default host.
+   */
+  QPAY_BASE_URL: process.env.QPAY_BASE_URL || 'https://merchant-sandbox.qpay.mn',
+  QPAY_USERNAME: process.env.QPAY_USERNAME || '',
+  QPAY_PASSWORD: process.env.QPAY_PASSWORD || '',
+  QPAY_INVOICE_CODE: process.env.QPAY_INVOICE_CODE || '',
+  /** Public URL of POST/GET /payments/qpay/callback; ?booking=<code> is added per invoice. */
+  QPAY_CALLBACK_URL:
+    process.env.QPAY_CALLBACK_URL ||
+    `http://localhost:${process.env.PORT || '8080'}/payments/qpay/callback`,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+  /** whsec_… from the dashboard endpoint or `stripe listen`; empty = the webhook route answers 404. */
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+  /** The front-end's origin, for Stripe's success and cancel pages. */
+  SITE_URL: (process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, ''),
 
   /** S3-compatible storage (DigitalOcean Spaces). Bucket, endpoint and both keys empty = /upload 404s. */
   SPACE_BUCKET_NAME: process.env.SPACE_BUCKET_NAME || '',

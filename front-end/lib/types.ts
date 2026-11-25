@@ -139,9 +139,13 @@ export type PlanFacet = { slug: string; name: string; count: number };
 export type PayMethod = "CARD" | "QPAY" | "BANK";
 export type Room = "TWIN" | "SINGLE";
 export type BookingStatus = "PENDING_PAYMENT" | "PAID" | "CONFIRMED" | "CANCELLED";
-/** EXPIRED = a bank-transfer hold past its 24 hours (derived on the server, never stored). */
+/** EXPIRED = an unpaid hold past its deadline: 24 h for a transfer, 30 min for QPay / card (derived on the server, never stored). */
 export type BookingStage = BookingStatus | "TRAVELLING" | "COMPLETED" | "EXPIRED";
 export type OrderTab = "ACTION" | "CONFIRMED" | "TRAVELLING" | "COMPLETED" | "CANCELLED";
+
+/** A QPay bank-app deeplink, used exactly as QPay returns it. */
+export type PayBank = { name: string; description: string; logo: string; link: string };
+export type PayLink = { url: string | null; qrImage: string | null; shortUrl: string | null; banks: PayBank[] | null };
 
 export type Booking = {
   id: string;
@@ -157,8 +161,10 @@ export type Booking = {
   cancelledBy: Role | null;
   createdAt: string;
   stage: BookingStage;
-  /** ISO instant the transfer must arrive by; null unless PENDING_PAYMENT (kept once expired). */
+  /** ISO instant the payment must arrive by; null unless PENDING_PAYMENT (kept once expired). */
   payBy: string | null;
+  /** Only on the booking page, while the hold runs: Stripe's page, or QPay's QR and bank-app links. */
+  payLink?: PayLink | null;
   lastDay: string;
   freeCancelUntil: string;
   payoutUsd: number;

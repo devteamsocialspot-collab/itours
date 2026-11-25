@@ -280,13 +280,15 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                       <div>{pick(locale, o.plan.titleEn, o.plan.titleMn).split(":")[0]}</div>
                       <div className="xs muted">{day(o.departure.startDate, locale)}</div>
                       <div className="xs muted show-m">
-                        {o.pax} · {usd(o.totalUsd)}
+                        {o.pax} · {usd(o.totalUsd)} · {t(`orders.method.${o.method}`)}
                       </div>
                     </td>
                     <td className="hide-m">{o.pax}</td>
                     <td className="nowrap hide-m">
                       {usd(o.totalUsd)}
-                      <div className="xs muted">{mnt(o.totalUsd)}</div>
+                      <div className="xs muted">
+                        {mnt(o.totalUsd)} · {t(`orders.method.${o.method}`)}
+                      </div>
                     </td>
                     <td>{statusTag(o)}</td>
                   </tr>
@@ -381,7 +383,8 @@ export function OrdersView({ orders, tabs, tab, onTab, search, onSearch, sort, o
                   {t("orders.expiredNote", { time: dateTime(sel.payBy, locale) })}
                 </p>
               )}
-              {sel.stage === "PENDING_PAYMENT" && (
+              {/* only a transfer is confirmed by hand; QPay and Stripe confirm their own payments */}
+              {sel.stage === "PENDING_PAYMENT" && sel.method === "BANK" && (
                 <div style={{ paddingTop: 14 }}>
                   <ConfirmDialog
                     label={t("orders.transferReceived")}

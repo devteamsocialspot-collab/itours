@@ -1,10 +1,12 @@
 "use client";
 
+import { useMutation } from "@apollo/client";
 import { Check, Clock, Copy, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Footer, SiteHeader } from "@/components/app/site-header";
 import { Photo } from "@/components/app/ui";
+import { CHECK_PAYMENT_MUTATION } from "@/lib/booking/queries";
 import { useNow, useRefetchWhenPast } from "@/lib/hooks/use-now";
 import { useLocale, useT } from "@/lib/i18n";
 import type { Booking } from "@/lib/types";
@@ -74,9 +76,37 @@ export function TripView({ booking, refetch }: { booking: Booking; refetch?: () 
   const cancelUntil = day(booking.freeCancelUntil, locale);
   const payBy = booking.payBy ? dateTime(booking.payBy, locale) : "";
   const amount = `${usd(booking.totalUsd)} (${mnt(booking.totalUsd)})`;
+  // the hold's copy: a transfer's (no suffix), or QPay's / the card's
+  const via = booking.method === "BANK" ? "" : booking.method;
+  const online = held && booking.method !== "BANK";
 
   // the deadline passing on an open page: ask the server once, and the page turns into the expired state
   useRefetchWhenPast(held ? [booking.payBy] : [], now, refetch);
+
+  // "is it paid?" goes to QPay / Stripe through the API; a paid answer updates the cached booking, so the page turns paid
+  const [checkPayment, { loading: checking }] = useMutation(CHECK_PAYMENT_MUTATION);
+  const [checkNote, setCheckNote] = useState("");
+  const check = useCallback(
+    async (byHand = false) => {
+      const sessionId = new URLSearchParams(window.location.search).get("session_id");
+      try {
+        const { data } = await checkPayment({ variables: { code: booking.code, sessionId } });
+        const res = data?.checkPayment;
+        if (byHand) setCheckNote(!res?.success ? (res?.message ?? t("common.error")) : res.booking?.stage === "PENDING_PAYMENT" ? t("trip.notPaidYet") : "");
+      } catch {
+        if (byHand) setCheckNote(t("common.error"));
+      }
+    },
+    [checkPayment, booking.code, t],
+  );
+  // at once (back from Stripe, or a reload), then every 5 s while a QR waits to be paid
+  useEffect(() => {
+    if (!online) return;
+    void check();
+    if (booking.method !== "QPAY") return;
+    const id = setInterval(() => void check(), 5000);
+    return () => clearInterval(id);
+  }, [online, booking.method, check]);
 
   const [Icon, tone] = held
     ? [Clock, "var(--color-cta-700)"]
@@ -84,7 +114,7 @@ export function TripView({ booking, refetch }: { booking: Booking; refetch?: () 
       ? [X, "var(--color-neutral-500)"]
       : [Check, "var(--color-accent-2-600)"];
   const title = held
-    ? t("trip.heldTitle", { name: firstName })
+    ? t(`trip.heldTitle${via}`, { name: firstName })
     : expired
       ? t("trip.expiredTitle")
       : cancelled
@@ -96,9 +126,9 @@ export function TripView({ booking, refetch }: { booking: Booking; refetch?: () 
             : t("trip.confirmedTitle", { name: firstName });
   const paidLead = t("trip.paidLead", { op, h: replyH, code: booking.code });
   const lead = held
-    ? t("trip.heldLead", { p: amount, time: payBy, code: booking.code })
+    ? t(`trip.heldLead${via}`, { p: booking.method === "CARD" ? usd(booking.totalUsd) : amount, time: payBy, code: booking.code })
     : expired
-      ? t("trip.expiredLead", { p: amount, time: payBy, code: booking.code })
+      ? t(booking.method === "BANK" ? "trip.expiredLead" : "trip.expiredLeadOnline", { p: amount, time: payBy, code: booking.code })
       : cancelled
         ? booking.cancelledBy === "USER"
           ? t("trip.cancelledByYou")
@@ -112,7 +142,7 @@ export function TripView({ booking, refetch }: { booking: Booking; refetch?: () 
               : paidLead;
 
   const steps = [
-    held ? t("trip.nextPay", { time: payBy }) : t("trip.next1", { h: replyH }),
+    held ? t(booking.method === "BANK" ? "trip.nextPay" : "trip.nextPayOnline", { time: payBy }) : t("trip.next1", { h: replyH }),
     t("trip.next2", { d: cancelUntil }),
     t("trip.next3", { d: day(addDays(booking.departure.startDate, -1), locale) }),
     t("trip.next4"),
@@ -161,17 +191,68 @@ export function TripView({ booking, refetch }: { booking: Booking; refetch?: () 
                   · {leftText(t, booking.payBy, now)} · {t("trip.ubTime")}
                 </span>
               </div>
-              <div className="sum-lines" style={{ marginTop: 10 }}>
-                {bank.map(([label, value, copy]) => (
-                  <div key={label} style={{ alignItems: "center" }}>
-                    <span>{label}</span>
-                    <span className="row" style={{ gap: 4 }}>
-                      <span className="semi">{value}</span>
-                      <CopyButton value={copy} label={label} />
-                    </span>
+              {booking.method === "BANK" && (
+                <div className="sum-lines" style={{ marginTop: 10 }}>
+                  {bank.map(([label, value, copy]) => (
+                    <div key={label} style={{ alignItems: "center" }}>
+                      <span>{label}</span>
+                      <span className="row" style={{ gap: 4 }}>
+                        <span className="semi">{value}</span>
+                        <CopyButton value={copy} label={label} />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {booking.method === "QPAY" && booking.payLink && (
+                <div className="row" style={{ gap: 18, marginTop: 14, flexWrap: "wrap", alignItems: "flex-start" }}>
+                  {booking.payLink.qrImage && (
+                    // eslint-disable-next-line @next/next/no-img-element -- a base64 PNG from QPay, nothing to optimise
+                    <img
+                      src={`data:image/png;base64,${booking.payLink.qrImage}`}
+                      alt={t("trip.qrAlt", { p: mnt(booking.totalUsd) })}
+                      width={196}
+                      height={196}
+                      style={{ background: "#fff", borderRadius: 14, padding: 6, flex: "none" }}
+                    />
+                  )}
+                  <div className="col" style={{ gap: 10, flex: "1 1 220px", minWidth: 0 }}>
+                    <span className="small">{t("trip.qpayScan")}</span>
+                    {/* QPay's deeplinks, untouched (its docs forbid rebuilding them); on a phone each opens that bank's app */}
+                    <div className="wrap-row" style={{ gap: 6 }}>
+                      {(booking.payLink.banks ?? []).map((bank) => (
+                        <a key={bank.name} href={bank.link} className="tag tag-neutral" style={{ gap: 6, paddingBlock: 4 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- QPay's bank logos */}
+                          <img src={bank.logo} alt="" width={18} height={18} style={{ borderRadius: 4 }} onError={(e) => (e.currentTarget.hidden = true)} />
+                          {pick(locale, bank.name, bank.description)}
+                        </a>
+                      ))}
+                    </div>
+                    {booking.payLink.shortUrl && (
+                      <a href={booking.payLink.shortUrl} target="_blank" rel="noreferrer" className="small">
+                        {t("trip.qpayLink")} ↗
+                      </a>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+              {booking.method === "CARD" && booking.payLink?.url && (
+                <a href={booking.payLink.url} className="btn btn-cta" style={{ marginTop: 14 }}>
+                  {t("trip.payCard", { p: usd(booking.totalUsd) })}
+                </a>
+              )}
+              {online && (
+                <div className="row no-print" style={{ marginTop: 14, gap: 10, flexWrap: "wrap" }}>
+                  <button type="button" className="btn btn-secondary btn-sm" disabled={checking} onClick={() => check(true)}>
+                    {t("trip.checkPayment")}
+                  </button>
+                  {checkNote && (
+                    <span role="status" className="small">
+                      {checkNote}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

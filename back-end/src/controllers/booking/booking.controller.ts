@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import config from '../../config';
 
 import sequelize from '../../config/database';
@@ -16,6 +16,7 @@ import {
   ORDER_TAB,
   PAY_METHOD,
   ROOM,
+  TBooking,
   TBookingCreate
 } from '../../types/booking/booking.type';
 import { TContextUser, TPagination } from '../../types/common.type';
@@ -24,8 +25,13 @@ import { ROLES, STAFF_ROLES } from '../../types/user/role.type';
 
 import { addDays, pagination, todayUb } from '../../utils';
 
-const { COMMISSION_PERCENT, HOLD_HOURS } = config;
-const HOLD_MS = HOLD_HOURS * 3600 * 1000;
+const { COMMISSION_PERCENT, HOLD_HOURS, ONLINE_HOLD_MINUTES } = config;
+/** How long an unpaid booking keeps its seats: a day for a transfer (BR-04), half an hour online. */
+const HOLD_MS: Record<PAY_METHOD, number> = {
+  [PAY_METHOD.BANK]: HOLD_HOURS * 3600 * 1000,
+  [PAY_METHOD.QPAY]: ONLINE_HOLD_MINUTES * 60 * 1000,
+  [PAY_METHOD.CARD]: ONLINE_HOLD_MINUTES * 60 * 1000
+};
 
 /** Which stages each orders-inbox tab holds. */
 const TAB_STAGES: Record<ORDER_TAB, BOOKING_STAGE[]> = {
@@ -53,36 +59,53 @@ export default class BookingController {
     return booking as WithTrip;
   }
 
-  // —— the bank-transfer hold (BR-04) ——
+  // —— the payment hold (BR-04): 24 h for a transfer, ONLINE_HOLD_MINUTES for QPay and card ——
 
   /**
-   * The one rule for "this booking holds seats and counts as a sale": not cancelled, and not a
-   * transfer hold older than HOLD_HOURS. Expired lazily — no job rewrites the row; every seat count,
-   * sales figure and stage reads it through here (where-clause) or isExpired (a loaded row).
+   * The one rule for "this booking holds seats and counts as a sale": not cancelled, and not an
+   * unpaid hold older than its method's HOLD_MS. Expired lazily — no job rewrites the row; every seat
+   * count, sales figure and stage reads it through here (where-clause) or isExpired (a loaded row).
    */
   static live() {
     return {
       [Op.or]: [
         { status: { [Op.notIn]: [BOOKING_STATUS.CANCELLED, BOOKING_STATUS.PENDING_PAYMENT] } },
-        { status: BOOKING_STATUS.PENDING_PAYMENT, createdAt: { [Op.gte]: this._holdCutoff() } }
+        ...Object.values(PAY_METHOD).map((method) => ({
+          status: BOOKING_STATUS.PENDING_PAYMENT,
+          method,
+          createdAt: { [Op.gte]: this._holdCutoff(method) }
+        }))
       ]
     };
   }
 
-  /** Holds made before this instant have lapsed. */
-  static _holdCutoff() {
-    return new Date(Date.now() - HOLD_MS);
+  /** Holds of this method made before this instant have lapsed. */
+  static _holdCutoff(method: PAY_METHOD) {
+    return new Date(Date.now() - HOLD_MS[method]);
   }
 
-  static isExpired(booking: Pick<BookingModel, 'status' | 'createdAt'>) {
-    return booking.status === BOOKING_STATUS.PENDING_PAYMENT && booking.createdAt < this._holdCutoff();
+  static isExpired(booking: Pick<BookingModel, 'status' | 'createdAt' | 'method'>) {
+    return (
+      booking.status === BOOKING_STATUS.PENDING_PAYMENT &&
+      booking.createdAt < this._holdCutoff(booking.method)
+    );
   }
 
-  /** ISO instant the transfer must arrive by; kept after it lapses, null once paid or cancelled. */
-  static payBy(booking: Pick<BookingModel, 'status' | 'createdAt'>) {
+  /** ISO instant the payment must arrive by; kept after it lapses, null once paid or cancelled. */
+  static payBy(booking: Pick<BookingModel, 'status' | 'createdAt' | 'method'>) {
     return booking.status === BOOKING_STATUS.PENDING_PAYMENT
-      ? new Date(booking.createdAt.getTime() + HOLD_MS).toISOString()
+      ? new Date(booking.createdAt.getTime() + HOLD_MS[booking.method]).toISOString()
       : null;
+  }
+
+  /** Free seats on a departure; the caller holds its row lock for anything it decides on this. */
+  static async _seatsLeft(departure: DepartureModel, transaction: Transaction) {
+    const taken =
+      (await BookingModel.sum('pax', {
+        where: { departureId: departure.id, ...this.live() },
+        transaction
+      })) || 0;
+    return departure.seats - taken;
   }
 
   // —— derived fields ——
@@ -142,6 +165,8 @@ export default class BookingController {
    * is locked (SELECT … FOR UPDATE) for the seat check and the insert, so buyers racing for one
    * departure queue up instead of overselling it: whoever is last to the last seat is told there are
    * not enough seats (BR-03), and nobody is refused while seats remain.
+   * Every booking starts unpaid; PaymentController.start() then opens QPay or Stripe, or (simulated)
+   * settles it at once.
    */
   static async createBooking(doc: TBookingCreate, userId: string) {
     const plan = await PlanModel.findOne({
@@ -164,12 +189,23 @@ export default class BookingController {
       });
       if (!departure) throw new Error('error.departureNotFound');
       if (departure.startDate < todayUb()) throw new Error('error.departurePast');
-      const taken =
-        (await BookingModel.sum('pax', {
-          where: { departureId: departure.id, ...this.live() },
+      // one unpaid online hold per traveller and departure: paying again (back from Stripe's page,
+      // or a fresh QR) gives the last one's seats back first
+      await BookingModel.update(
+        { status: BOOKING_STATUS.CANCELLED, cancelledBy: ROLES.USER },
+        {
+          where: {
+            userId,
+            departureId: departure.id,
+            method: [PAY_METHOD.QPAY, PAY_METHOD.CARD],
+            status: BOOKING_STATUS.PENDING_PAYMENT,
+            ...this.live()
+          },
           transaction
-        })) || 0;
-      if (departure.seats - taken < pax) throw new Error('error.notEnoughSeats');
+        }
+      );
+      if ((await this._seatsLeft(departure, transaction)) < pax)
+        throw new Error('error.notEnoughSeats');
       return BookingModel.create(
         {
           code: `ITR-${randomBytes(3).toString('hex').toUpperCase()}`,
@@ -180,8 +216,7 @@ export default class BookingController {
           room,
           totalUsd,
           method,
-          // card and QPay settle at once; a transfer waits for the agency to see the money
-          status: method === PAY_METHOD.BANK ? BOOKING_STATUS.PENDING_PAYMENT : BOOKING_STATUS.PAID,
+          status: BOOKING_STATUS.PENDING_PAYMENT,
           notes: String(doc.notes ?? '').trim().slice(0, 1000),
           acceptedTradeoffs: true
         },
@@ -189,6 +224,36 @@ export default class BookingController {
       );
     });
     return this.findIdCheck(booking.id);
+  }
+
+  /**
+   * QPay or Stripe confirmed the money (the provider was asked; nobody's word is taken for it).
+   * Idempotent: the callback, the webhook, the return page and the poll may all report one payment,
+   * and only the first changes anything. Money that lands after the hold lapsed is still taken while
+   * its seats are free; if they were resold, or the booking was cancelled, the booking stays as it is
+   * with the payment's reference stored, and the log asks for a refund by hand.
+   */
+  static async settle(id: string, refs: Partial<Pick<TBooking, 'stripeSessionId' | 'paymentRef'>> = {}) {
+    const found = await BookingModel.findByPk(id, { attributes: ['departureId'] });
+    if (!found) return null;
+    return sequelize.transaction(async (transaction) => {
+      // the departure's lock, as in createBooking: one payment or sale per departure at a time
+      const departure = await DepartureModel.findByPk(found.departureId, {
+        lock: transaction.LOCK.UPDATE,
+        transaction
+      });
+      const booking = (await BookingModel.findByPk(id, { transaction }))!;
+      if (booking.status === BOOKING_STATUS.PAID || booking.status === BOOKING_STATUS.CONFIRMED)
+        return booking;
+      const lost =
+        booking.status === BOOKING_STATUS.CANCELLED ||
+        (this.isExpired(booking) && (await this._seatsLeft(departure!, transaction)) < booking.pax);
+      if (lost) {
+        console.warn(`⚠️ ${booking.code}: paid after its seats were given up, refund ${refs.paymentRef ?? ''} by hand`);
+        return booking.update(refs, { transaction });
+      }
+      return booking.update({ status: BOOKING_STATUS.PAID, payLink: null, ...refs }, { transaction });
+    });
   }
 
   static async getMyBookings(userId: string) {
@@ -306,9 +371,10 @@ export default class BookingController {
     return booking;
   }
 
-  /** The bank transfer arrived, within the hold. */
+  /** The bank transfer arrived, within the hold. QPay and card are confirmed by their provider. */
   static async markPaid(id: string, operatorId: string) {
     const booking = await this.findOwnCheck(id, operatorId);
+    if (booking.method !== PAY_METHOD.BANK) throw new Error('error.paidOnline');
     if (booking.status !== BOOKING_STATUS.PENDING_PAYMENT) throw new Error('error.orderNotPending');
     // its seats may be someone else's by now; what happens to a late transfer is a product decision
     if (this.isExpired(booking)) throw new Error('error.holdExpired');

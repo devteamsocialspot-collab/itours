@@ -68,6 +68,22 @@ export const MY_BOOKINGS_QUERY = gql`
   ${BOOKING_FIELDS}
 `;
 
+const PAY_LINK = gql`
+  fragment PayLinkFields on Booking {
+    payLink {
+      url
+      qrImage
+      shortUrl
+      banks {
+        name
+        description
+        logo
+        link
+      }
+    }
+  }
+`;
+
 export const BOOKING_QUERY = gql`
   query Booking($code: String!) {
     booking(code: $code) {
@@ -75,6 +91,7 @@ export const BOOKING_QUERY = gql`
       message
       booking {
         ...BookingFields
+        ...PayLinkFields
         traveller {
           id
           name
@@ -83,6 +100,23 @@ export const BOOKING_QUERY = gql`
     }
   }
   ${BOOKING_FIELDS}
+  ${PAY_LINK}
+`;
+
+/** Asks QPay / Stripe whether it is paid; the answer lands in the cache, so the booking page turns paid by itself. */
+export const CHECK_PAYMENT_MUTATION = gql`
+  mutation CheckPayment($code: String!, $sessionId: String) {
+    checkPayment(code: $code, sessionId: $sessionId) {
+      success
+      message
+      booking {
+        ...BookingFields
+        ...PayLinkFields
+      }
+    }
+  }
+  ${BOOKING_FIELDS}
+  ${PAY_LINK}
 `;
 
 export const CREATE_BOOKING_MUTATION = gql`
@@ -93,6 +127,9 @@ export const CREATE_BOOKING_MUTATION = gql`
       booking {
         id
         code
+        payLink {
+          url
+        }
       }
     }
   }

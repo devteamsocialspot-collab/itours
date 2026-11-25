@@ -1,11 +1,12 @@
 import BookingController from '../../../controllers/booking/booking.controller';
+import PaymentController from '../../../controllers/payment/payment.controller';
 import ReviewController from '../../../controllers/booking/review.controller';
 import UserController from '../../../controllers/user/user.controller';
 
 import { BookingModel } from '../../../models/booking/booking.model';
 import { ReviewModel } from '../../../models/booking/review.model';
 
-import { PAY_METHOD } from '../../../types/booking/booking.type';
+import { BOOKING_STATUS, PAY_METHOD } from '../../../types/booking/booking.type';
 import { TContextUser, TTokenValue } from '../../../types/common.type';
 import { STAFF_ROLES } from '../../../types/user/role.type';
 
@@ -72,11 +73,17 @@ export default {
   Mutation: {
     createBooking: async (_, doc, context: TContextUser) => {
       try {
-        const booking = await BookingController.createBooking(doc, context.userId);
+        const booking = await PaymentController.start(
+          await BookingController.createBooking(doc, context.userId)
+        );
         return {
           ...ok(
             context.lang,
-            booking.method === PAY_METHOD.BANK ? 'response.seatsHeld' : 'response.booked'
+            booking.status === BOOKING_STATUS.PAID
+              ? 'response.booked'
+              : booking.method === PAY_METHOD.BANK
+                ? 'response.seatsHeld'
+                : 'response.payNow'
           ),
           booking
         };
@@ -89,6 +96,16 @@ export default {
         return {
           ...ok(context.lang, 'response.bookingCancelled'),
           booking: await BookingController.cancelBooking(doc.id, context.userId)
+        };
+      } catch (error) {
+        return { ...fail(error, context.lang), booking: null };
+      }
+    },
+    checkPayment: async (_, doc: { code: string; sessionId?: string }, context: TContextUser) => {
+      try {
+        return {
+          ...ok(context.lang),
+          booking: await PaymentController.checkMine(doc.code, context.userId, doc.sessionId)
         };
       } catch (error) {
         return { ...fail(error, context.lang), booking: null };
@@ -141,6 +158,10 @@ export default {
   Booking: {
     stage: (booking: Trip) => BookingController.stage(booking),
     payBy: (booking: BookingModel) => BookingController.payBy(booking),
+    payLink: (booking: BookingModel) =>
+      booking.status === BOOKING_STATUS.PENDING_PAYMENT && !BookingController.isExpired(booking)
+        ? booking.payLink
+        : null,
     lastDay: (booking: Trip) => BookingController.lastDay(booking),
     freeCancelUntil: (booking: Trip) => BookingController.freeCancelUntil(booking),
     payoutUsd: (booking: Trip) => BookingController.payout(booking).usd,

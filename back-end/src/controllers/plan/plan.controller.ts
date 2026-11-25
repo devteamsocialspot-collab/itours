@@ -26,6 +26,7 @@ import {
 import { ROLES, STAFF_ROLES } from '../../types/user/role.type';
 
 import { cleanUrls, pagination, pickFields, slugify, todayUb } from '../../utils';
+import { catalogue } from '../../utils/catalogue';
 import BookingController from '../booking/booking.controller';
 
 const PLAN_FIELDS: (keyof TPlanInput)[] = [
@@ -323,14 +324,16 @@ export default class PlanController {
    * when the catalogue grows past that.
    */
   static async getPlans(doc: TSearchPlans) {
-    const plans = await PlanModel.findAll({
-      where: { status: PLAN_STATUS.PUBLISHED },
-      include: this.include().map((include) =>
-        include.as === 'operator'
-          ? { ...include, where: { isVerified: true } }
-          : include
-      )
-    });
+    const plans = await catalogue(() =>
+      PlanModel.findAll({
+        where: { status: PLAN_STATUS.PUBLISHED },
+        include: this.include().map((include) =>
+          include.as === 'operator'
+            ? { ...include, where: { isVerified: true } }
+            : include
+        )
+      })
+    );
     const needle = doc.search?.trim().toLowerCase();
     const pax = Math.max(doc.pax ?? 1, 1);
     const fitsMonth = (plan: PlanModel) =>

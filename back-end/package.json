@@ -26,7 +26,8 @@
     "multer": "^2.4.0",
     "pg": "^8.23.0",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.37.8"
+    "sequelize": "^6.37.8",
+    "stripe": "23.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

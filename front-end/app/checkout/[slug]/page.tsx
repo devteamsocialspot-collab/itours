@@ -39,7 +39,7 @@ function Checkout() {
         <Footer />
       </>
     );
-  return <CheckoutView plan={plan} depId={sp.get("dep") ?? ""} pax={Number(sp.get("pax")) || 1} room={(sp.get("room") as Room) ?? "TWIN"} />;
+  return <CheckoutView plan={plan} depId={sp.get("dep") ?? ""} pax={Number(sp.get("pax")) || 1} room={(sp.get("room") as Room) ?? "TWIN"} cancelled={sp.get("cancelled") === "1"} />;
 }
 
 export default function CheckoutPage() {

@@ -11,19 +11,32 @@ import { Con, Photo } from "@/components/app/ui";
 import { CREATE_BOOKING_MUTATION } from "@/lib/booking/queries";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { useLocale, useT } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n/dictionaries";
 import { consOf, nextDeparture } from "@/lib/plan/helpers";
 import type { PayMethod, Plan, Room } from "@/lib/types";
 import { addDays, day, dayRange, mnt, pick, usd } from "@/lib/utils";
 
-const METHODS: PayMethod[] = ["CARD", "QPAY", "BANK"];
+/** Tögrög from a Mongolian bank, or a card from anywhere else (Stripe). */
+const GROUPS: [label: string, methods: PayMethod[]][] = [
+  ["book.fromMongolia", ["QPAY", "BANK"]],
+  ["book.fromAbroad", ["CARD"]],
+];
 
-/** Checkout (wireframe 1d). Payment is simulated; the API prices the order again and holds the seats. */
-export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; depId: string; pax: number; room: Room }) {
+/** QPay for a traveller from Mongolia, or with no country on file who reads the site in Mongolian; a card otherwise. */
+const defaultMethod = (country: string | undefined, locale: Locale): PayMethod => {
+  const c = country?.trim() ?? "";
+  return /^(mongol|монгол|mn$)/i.test(c) || (!c && locale === "mn") ? "QPAY" : "CARD";
+};
+
+/** Checkout (wireframe 1d). The API prices the order again, holds the seats, then opens QPay or Stripe. */
+export function CheckoutView({ plan, depId, pax: wanted, room, cancelled }: { plan: Plan; depId: string; pax: number; room: Room; cancelled?: boolean }) {
   const t = useT();
   const { locale } = useLocale();
   const router = useRouter();
   const { user } = useCurrentUser();
-  const [method, setMethod] = useState<PayMethod>("CARD");
+  // the default follows the traveller's profile once it loads, until they pick one themselves
+  const [picked, setPicked] = useState<PayMethod | null>(null);
+  const method = picked ?? defaultMethod(user?.country, locale);
   const [notes, setNotes] = useState("");
   const [accept, setAccept] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +60,9 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
     const { data } = await book({ variables: { planId: plan.id, departureId: dep.id, pax, room, method, notes, accept } });
     const res = data?.createBooking;
     if (!res?.success) return setError(res?.message ?? t("common.error"));
-    router.push(`/trips/${res.booking.code}`);
+    // a card goes to Stripe's page and comes back to the booking; QPay and transfers go there now
+    if (res.booking.payLink?.url) window.location.assign(res.booking.payLink.url);
+    else router.push(`/trips/${res.booking.code}`);
   };
 
   return (
@@ -99,52 +114,35 @@ export function CheckoutView({ plan, depId, pax: wanted, room }: { plan: Plan; d
             </div>
           )}
           {user && user.role !== "USER" && <p className="error">{t("book.travellersOnly")}</p>}
+          {cancelled && (
+            <p role="status" className="small" style={{ margin: "0 0 14px" }}>
+              {t("book.cardCancelled")}
+            </p>
+          )}
           {error && (
             <p role="alert" className="error">
               {error}
             </p>
           )}
 
-          <div className="col" style={{ gap: 10, marginBottom: 24 }}>
-            {METHODS.map((value) => (
-              <label key={value} className="pay-opt">
-                <input type="radio" name="method" value={value} checked={method === value} onChange={() => setMethod(value)} />
-                <span>
-                  <span className="bold" style={{ fontSize: 14, display: "block" }}>
-                    {t(`book.${value}`)}
+          {GROUPS.map(([label, methods]) => (
+            <fieldset key={label} className="col" style={{ gap: 10, margin: "0 0 20px", padding: 0, border: 0, minWidth: 0 }}>
+              <legend className="kicker" style={{ padding: 0, marginBottom: 8 }}>
+                {t(label)}
+              </legend>
+              {methods.map((value) => (
+                <label key={value} className="pay-opt">
+                  <input type="radio" name="method" value={value} checked={method === value} onChange={() => setPicked(value)} />
+                  <span>
+                    <span className="bold" style={{ fontSize: 14, display: "block" }}>
+                      {t(`book.${value}`)}
+                    </span>
+                    <span className="small muted">{t(`book.${value}Sub`)}</span>
                   </span>
-                  <span className="small muted">{t(`book.${value}Sub`)}</span>
-                </span>
-                {value === "QPAY" && <span className="tag tag-accent-2 ml-auto">{t("book.domestic")}</span>}
-              </label>
-            ))}
-          </div>
-
-          {/* demo checkout: these fields are never read, so card data never leaves the browser */}
-          {method === "CARD" && (
-            <div className="grid-2" style={{ gap: 12, marginBottom: 10 }}>
-              {/* 1 / -1, not span 2: on a phone the grid has one column, and span 2 would add a second */}
-              <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label htmlFor="card-name">{t("book.nameOnCard")}</label>
-                <input id="card-name" className="input" defaultValue={user?.name} autoComplete="off" />
-              </div>
-              <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label htmlFor="card-number">{t("book.cardNumber")}</label>
-                <input id="card-number" className="input" placeholder="4242 4242 4242 4242" inputMode="numeric" autoComplete="off" />
-              </div>
-              <div className="field">
-                <label htmlFor="card-expiry">{t("book.expiry")}</label>
-                <input id="card-expiry" className="input" placeholder="MM / YY" autoComplete="off" />
-              </div>
-              <div className="field">
-                <label htmlFor="card-cvc">CVC</label>
-                <input id="card-cvc" className="input" placeholder="•••" autoComplete="off" />
-              </div>
-            </div>
-          )}
-          <p className="xs muted" style={{ margin: "0 0 18px" }}>
-            {t("book.demoPayment")}
-          </p>
+                </label>
+              ))}
+            </fieldset>
+          ))}
 
           <div className="field" style={{ marginBottom: 18 }}>
             <label htmlFor="notes">{t("book.notesLabel")}</label>

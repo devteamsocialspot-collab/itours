@@ -21,8 +21,10 @@ export default `#graphql
     traveller: User
     "The stored status, plus TRAVELLING / COMPLETED from the dates, EXPIRED for a lapsed transfer hold."
     stage: BOOKING_STAGE
-    "ISO instant a bank transfer must arrive by (createdAt + HOLD_HOURS); null unless PENDING_PAYMENT."
+    "ISO instant the payment must arrive by (createdAt + the method's hold: 24 h bank, 30 min QPay / card); null unless PENDING_PAYMENT."
     payBy: String
+    "How to pay while the hold runs: Stripe's page, or the QPay QR and bank-app links. Null otherwise."
+    payLink: PayLink
     "YYYY-MM-DD"
     lastDay: String
     freeCancelUntil: String
@@ -32,6 +34,23 @@ export default `#graphql
     canCancel: Boolean
     canReview: Boolean
     hasReview: Boolean
+  }
+
+  "One bank app's QPay deeplink, as QPay returns it."
+  type PayBank {
+    name: String
+    description: String
+    logo: String
+    link: String
+  }
+
+  type PayLink {
+    "Stripe Checkout"
+    url: String
+    "QPay: base64 PNG"
+    qrImage: String
+    shortUrl: String
+    banks: [PayBank]
   }
 
   type BookingResponse {
@@ -110,6 +129,8 @@ export default `#graphql
     "Price is computed on the server; accept = the traveller read the plan's cons."
     createBooking(planId: ID!, departureId: ID!, pax: Int!, room: ROOM, method: PAY_METHOD!, notes: String, accept: Boolean!): BookingResponse @auth(permissions: ["USER"])
     cancelBooking(id: ID!): BookingResponse @auth(permissions: ["USER"])
+    "Asks QPay / Stripe whether a pending booking is paid; sessionId = Stripe's ?session_id on return."
+    checkPayment(code: String!, sessionId: String): BookingResponse @auth(permissions: ["USER"])
     "Every promise of the plan must be rated."
     submitReview(bookingId: ID!, stars: Int!, text: String, ratings: [RatingInput!]!): ReviewResponse @auth(permissions: ["USER"])
     confirmOrder(id: ID!, guide: String!, driver: String): BookingResponse @auth(permissions: ["OPERATOR"])

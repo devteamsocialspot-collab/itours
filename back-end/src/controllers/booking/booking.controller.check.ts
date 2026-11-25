@@ -2,8 +2,9 @@
  * The one check for selling seats, against the dev database:
  *   npx ts-node src/controllers/booking/booking.controller.check.ts
  * Makes a throwaway agency with a 3-seat departure, lets six travellers race for it, checks that a
- * transfer hold lapses after 24 hours, and deletes everything it made (bookings first: they
- * RESTRICT; the operator cascades to its plan).
+ * transfer hold lapses after 24 hours and a QPay / card hold after 30 minutes, that a payment is
+ * taken once, and deletes everything it made (bookings first: they RESTRICT; the operator cascades
+ * to its plan). Payments are simulated here whatever .env says: no provider is called.
  */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -19,7 +20,11 @@ import { PLAN_STATUS } from '../../types/plan/plan.type';
 import { ROLES } from '../../types/user/role.type';
 import { addDays, todayUb } from '../../utils';
 import OperatorController from '../operator/operator.controller';
+import PaymentController from '../payment/payment.controller';
 import BookingController from './booking.controller';
+
+PaymentController.qpayOn = false;
+PaymentController.stripe = null;
 
 const main = async () => {
   await connectDatabase();
@@ -58,19 +63,22 @@ const main = async () => {
       startDate: addDays(todayUb(), 60),
       seats: 3
     });
-    const book = (userId: string, pax = 1, extra = {}) =>
-      BookingController.createBooking(
-        {
-          planId: plan.id,
-          departureId: departure.id,
-          pax,
-          room: ROOM.TWIN,
-          method: PAY_METHOD.CARD,
-          notes: '',
-          accept: true,
-          ...extra
-        },
-        userId
+    // as the createBooking resolver does: hold the seats, then pay (simulated: at once)
+    const book = async (userId: string, pax = 1, extra = {}) =>
+      PaymentController.start(
+        await BookingController.createBooking(
+          {
+            planId: plan.id,
+            departureId: departure.id,
+            pax,
+            room: ROOM.TWIN,
+            method: PAY_METHOD.CARD,
+            notes: '',
+            accept: true,
+            ...extra
+          },
+          userId
+        )
       );
 
     // not reading the cons is refused before any seat is touched
@@ -142,6 +150,70 @@ const main = async () => {
     assert.equal((await BookingController.markPaid(fresh.id, operator.id)).status, 'PAID');
     // and it is no sale: 3 paid on the first departure + the fresh one; the cancelled seat isn't one either
     assert.equal((await OperatorController.getStats(operator.id)).tripsSold, 4);
+    // nor is a QPay / card payment the operator's to mark
+    const card = await BookingModel.findOne({ where: { departureId: departure.id, status: 'PAID' } });
+    await assert.rejects(BookingController.markPaid(card!.id, operator.id), /paidOnline/);
+
+    // each method its own hold: 31 minutes frees a QPay seat and keeps a transfer's
+    const hold = async (method: PAY_METHOD, minutes: number, seats = 1) => {
+      const dep = await DepartureModel.create({
+        planId: plan.id,
+        startDate: addDays(todayUb(), 62),
+        seats
+      });
+      const held = await BookingModel.create({
+        code: `ITR-${method}${String(stamp).slice(-4)}${minutes}`,
+        userId: travellers[3].id,
+        planId: plan.id,
+        departureId: dep.id,
+        pax: 1,
+        room: ROOM.TWIN,
+        totalUsd: 1000,
+        method,
+        status: 'PENDING_PAYMENT',
+        acceptedTradeoffs: true,
+        createdAt: new Date(Date.now() - minutes * 60 * 1000)
+      });
+      return { dep, held: await BookingController.findIdCheck(held.id) };
+    };
+    const qpayOld = await hold(PAY_METHOD.QPAY, 31);
+    const bankOld = await hold(PAY_METHOD.BANK, 31);
+    assert.equal(BookingController.stage(qpayOld.held), 'EXPIRED');
+    assert.equal(
+      BookingController.payBy(qpayOld.held),
+      new Date(qpayOld.held.createdAt.getTime() + 30 * 60 * 1000).toISOString()
+    );
+    assert.equal(BookingController.stage(bankOld.held), 'PENDING_PAYMENT');
+    const taker = await book(travellers[4].id, 1, { departureId: qpayOld.dep.id });
+    assert.equal(taker.status, 'PAID');
+    await assert.rejects(book(travellers[4].id, 1, { departureId: bankOld.dep.id }), /notEnoughSeats/);
+
+    // settle is idempotent: the poll, the callback and the webhook may all report one payment
+    const qpayNew = await hold(PAY_METHOD.QPAY, 5);
+    assert.equal(BookingController.stage(qpayNew.held), 'PENDING_PAYMENT');
+    assert.equal((await BookingController.settle(qpayNew.held.id, { paymentRef: 'p-1' }))!.status, 'PAID');
+    const again = await BookingController.settle(qpayNew.held.id, { paymentRef: 'p-2' });
+    assert.equal(again!.status, 'PAID');
+    assert.equal(again!.paymentRef, 'p-1');
+    assert.equal(await BookingController.settle(randomUUID()), null);
+    // money after the hold: taken while the seat is free, refused (kept for a refund) once it was resold
+    const lateFree = await hold(PAY_METHOD.CARD, 40);
+    assert.equal((await BookingController.settle(lateFree.held.id))!.status, 'PAID');
+    const lateSold = (await BookingController.settle(qpayOld.held.id, { paymentRef: 'late' }))!;
+    assert.equal(lateSold.status, 'PENDING_PAYMENT');
+    assert.equal(lateSold.paymentRef, 'late');
+    assert.equal(BookingController.stage(await BookingController.findIdCheck(qpayOld.held.id)), 'EXPIRED');
+
+    // paying again for the same departure (back from Stripe) releases the traveller's last online hold
+    const roomy = await DepartureModel.create({ planId: plan.id, startDate: addDays(todayUb(), 63), seats: 1 });
+    const first = await BookingController.createBooking(
+      { planId: plan.id, departureId: roomy.id, pax: 1, room: ROOM.TWIN, method: PAY_METHOD.QPAY, notes: '', accept: true },
+      travellers[5].id
+    );
+    assert.equal(first.status, 'PENDING_PAYMENT');
+    const retry = await book(travellers[5].id, 1, { departureId: roomy.id });
+    assert.equal(retry.status, 'PAID');
+    assert.equal((await BookingModel.findByPk(first.id))!.status, 'CANCELLED');
   } finally {
     await BookingModel.destroy({ where: { userId: travellers.map((user) => user.id) } });
     await UserModel.destroy({ where: { id: travellers.map((user) => user.id) } });

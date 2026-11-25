@@ -12,6 +12,7 @@ import router from './src/route';
 import { typeDefs } from './src/graphql/schemas';
 import { resolvers } from './src/graphql/resolvers';
 import { connectDatabase } from './src/config/database';
+import PaymentController from './src/controllers/payment/payment.controller';
 import UserController from './src/controllers/user/user.controller';
 
 import { seedAdmin } from './src/seeds/user.seed';
@@ -55,6 +56,7 @@ Promise.all([connectDatabase(), server.start()])
 
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
+      console.log(PaymentController.mode());
     });
 
     // graceful shutdown for pm2 / docker: finish in-flight requests first

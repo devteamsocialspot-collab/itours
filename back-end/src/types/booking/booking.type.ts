@@ -1,6 +1,9 @@
 import { ROLES } from '../user/role.type';
 
-/** Payments are simulated: card and QPay settle at once, a bank transfer waits for the operator. */
+/**
+ * CARD = Stripe Checkout (travellers from abroad), QPAY = a QPay invoice, BANK = a transfer the operator
+ * marks as received. Card and QPay are settled by their provider; without its keys, at once (simulated).
+ */
 export enum PAY_METHOD {
   CARD = 'CARD',
   QPAY = 'QPAY',
@@ -17,7 +20,7 @@ export enum BOOKING_STATUS {
 
 /**
  * What a traveller and the orders inbox see: the stored state plus where the trip is in time.
- * EXPIRED = a PENDING_PAYMENT hold past its HOLD_HOURS; not stored either.
+ * EXPIRED = a PENDING_PAYMENT hold past its method's hold (BookingController.payBy); not stored either.
  */
 export enum BOOKING_STAGE {
   PENDING_PAYMENT = 'PENDING_PAYMENT',
@@ -62,9 +65,26 @@ export type TBooking = {
   acceptedTradeoffs: boolean;
   /** Who cancelled; the operator's share feeds its cancel rate. */
   cancelledBy: ROLES | null;
+  qpayInvoiceId: string | null;
+  stripeSessionId: string | null;
+  /** The provider's payment: a Stripe payment intent, or QPay payment ids. Kept for refunds. */
+  paymentRef: string | null;
+  /** What the traveller pays with while PENDING_PAYMENT; cleared once paid. */
+  payLink: TPayLink | null;
 
   createdAt: Date;
   updatedAt: Date;
+};
+
+/** A QPay bank-app button, exactly as QPay returns it (its docs forbid rebuilding the deeplinks). */
+export type TQpayBank = { name: string; description: string; logo: string; link: string };
+
+/** Stripe Checkout's page, or a QPay invoice's QR (base64 PNG), short link and bank-app links. */
+export type TPayLink = {
+  url?: string | null;
+  qrImage?: string;
+  shortUrl?: string;
+  banks?: TQpayBank[];
 };
 
 export type TBookingCreate = Pick<

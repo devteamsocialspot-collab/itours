@@ -3,7 +3,8 @@ import {
   BOOKING_STATUS,
   PAY_METHOD,
   ROOM,
-  TBooking
+  TBooking,
+  TPayLink
 } from '../../types/booking/booking.type';
 import { ROLES } from '../../types/user/role.type';
 import { DepartureModel } from '../plan/departure.model';
@@ -29,6 +30,10 @@ export class BookingModel extends Model implements TBooking {
   public driver!: string;
   public acceptedTradeoffs!: boolean;
   public cancelledBy!: ROLES | null;
+  public qpayInvoiceId!: string | null;
+  public stripeSessionId!: string | null;
+  public paymentRef!: string | null;
+  public payLink!: TPayLink | null;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -113,7 +118,12 @@ export const createBookingModel = (sequelize: Sequelize) => {
         type: DataTypes.ENUM,
         values: [ROLES.USER, ROLES.OPERATOR, ROLES.MANAGER],
         allowNull: true
-      }
+      },
+      // added after launch: MIGRATIONS in config/database.ts adds them to an existing table
+      qpayInvoiceId: { type: DataTypes.STRING, allowNull: true },
+      stripeSessionId: { type: DataTypes.STRING, allowNull: true },
+      paymentRef: { type: DataTypes.STRING, allowNull: true },
+      payLink: { type: DataTypes.JSONB, allowNull: true }
     },
     {
       sequelize,
